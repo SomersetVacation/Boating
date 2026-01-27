@@ -6,65 +6,32 @@
 <title>Boating Conditions</title>
 
 <style>
-  body {
-    margin: 0;
-    background: black;
-    color: white;
-    font-family: Arial, Helvetica, sans-serif;
-  }
-
+  body { margin:0; background:black; color:white; font-family:Arial, Helvetica, sans-serif; }
   .card {
-    border: 1px solid #333;
-    border-radius: 18px;
-    padding: 24px 28px;
-    background: rgba(255,255,255,0.06);
-    max-width: 580px;
-    margin: 0 auto;
-    text-align: center;
+    border:1px solid #333; border-radius:18px; padding:24px 28px;
+    background:rgba(255,255,255,0.06); max-width:580px; margin:0 auto; text-align:center;
   }
-
-  h2 {
-    margin: 0 0 14px;
-    font-size: 34px;
-  }
-
-  .section {
-    margin-top: 20px;
-  }
-
-  .label {
-    font-size: 18px;
-    opacity: 0.8;
-  }
-
-  .time {
-    font-size: 36px;
-    font-weight: bold;
-    margin: 6px 0;
-  }
-
-  .detail {
-    font-size: 18px;
-    opacity: 0.85;
-  }
-
-  .good { color: #8fff9a; }
-  .bad  { color: #ff9a9a; }
-  .neutral { color: #ffd27d; }
+  h2 { margin:0 0 14px; font-size:34px; }
+  .section { margin-top:20px; }
+  .label { font-size:18px; opacity:.8; }
+  .time { font-size:36px; font-weight:bold; margin:6px 0; }
+  .detail { font-size:18px; opacity:.85; }
+  .good { color:#8fff9a; }
+  .bad  { color:#ff9a9a; }
+  .neutral { color:#ffd27d; }
 
   .meta {
-    margin-top: 18px;
-    padding-top: 12px;
-    border-top: 1px solid #222;
-    font-size: 14px;
-    opacity: 0.75;
-    line-height: 1.35;
+    margin-top:18px; padding-top:12px; border-top:1px solid #222;
+    font-size:14px; opacity:.75; line-height:1.35;
   }
-  .meta a{
-    color:#9fd4ff;
-    text-decoration:none;
-  }
+  .meta a{ color:#9fd4ff; text-decoration:none; }
   .meta a:hover{ text-decoration:underline; }
+
+  .note {
+    margin-top:12px;
+    font-size:14px;
+    opacity:0.75;
+  }
 </style>
 </head>
 
@@ -91,6 +58,8 @@
     <div id="bestTomorrowDetail" class="detail"></div>
   </div>
 
+  <div id="tieNote" class="note"></div>
+
   <div class="meta">
     <div id="metaUpdated">Last updated: –</div>
     <div id="metaNext">Next update: –</div>
@@ -106,10 +75,9 @@ const LAT = -27.1153;
 const LON = 152.5565;
 const TZ = "Australia/Brisbane";
 const WINDOW = 3;
+const REFRESH_MS = 30 * 60 * 1000;
 
-const REFRESH_MS = 30 * 60 * 1000; // 30 minutes
-
-// Inland wave proxy (cm)
+// Inland wave proxy (cm) based on MAX wind in the window
 function waveProxy(w) {
   if (w < 5) return 0;
   if (w < 10) return 10;
@@ -119,30 +87,18 @@ function waveProxy(w) {
   return 70;
 }
 
-function fmtTime(iso) {
-  return new Date(iso).toLocaleTimeString("en-AU", {
-    timeZone: TZ,
-    hour: "2-digit",
-    minute: "2-digit"
-  });
+function fmtTime(isoOrDate) {
+  const d = (isoOrDate instanceof Date) ? isoOrDate : new Date(isoOrDate);
+  return d.toLocaleTimeString("en-AU", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
 }
 
 function fmtClock(d) {
-  return d.toLocaleString("en-AU", {
-    timeZone: TZ,
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit"
-  });
+  return d.toLocaleString("en-AU", { timeZone: TZ, weekday: "short", hour: "2-digit", minute: "2-digit" });
 }
 
 function windDir(deg) {
   const dirs = ["N","NE","E","SE","S","SW","W","NW"];
   return dirs[Math.round(deg / 45) % 8];
-}
-
-function score(w, p, r) {
-  return w * 2 + p + r * 50;
 }
 
 function setMetaTimes() {
@@ -152,8 +108,14 @@ function setMetaTimes() {
   document.getElementById("metaNext").textContent = `Next update: ${fmtClock(next)}`;
 }
 
+// Better score: average wind matters + any rain matters a lot
+function score(avgWind, maxProb, totalMm) {
+  return (avgWind * 3) + (maxProb * 1.2) + (totalMm * 80);
+}
+
 async function load() {
   setMetaTimes();
+  document.getElementById("tieNote").textContent = "";
 
   const r = await fetch(
     `https://api.open-meteo.com/v1/forecast` +
@@ -171,52 +133,68 @@ async function load() {
   const rmm = j.hourly.precipitation;
 
   const today = new Date().toLocaleDateString("en-CA", { timeZone: TZ });
-  const tomorrow = new Date(Date.now()+86400000)
-    .toLocaleDateString("en-CA", { timeZone: TZ });
+  const tomorrow = new Date(Date.now() + 86400000).toLocaleDateString("en-CA", { timeZone: TZ });
 
   function bestWorst(dateStr) {
-    let best=null, worst=null;
+    let best = null, worst = null;
 
-    for(let i=0;i<t.length-WINDOW;i++){
-      if(!t[i].startsWith(dateStr)) continue;
+    for (let i = 0; i < t.length - WINDOW; i++) {
+      if (!t[i].startsWith(dateStr)) continue;
 
+      // NOTE: device is in Brisbane, so this is fine. If not, we'd parse using TZ explicitly.
       const hour = new Date(t[i]).getHours();
-      // boating hours 6am–6pm, ensure window fits:
-      if(hour < 6 || hour > (18 - WINDOW)) continue;
+      if (hour < 6 || hour > (18 - WINDOW)) continue;
 
-      let mw=0, mp=0, mr=0, sc=0, dir=wd[i];
-      for(let k=0;k<WINDOW;k++){
-        mw = Math.max(mw, w[i+k]);
-        mp = Math.max(mp, p[i+k]);
-        mr += rmm[i+k];
-        sc += score(w[i+k], p[i+k], rmm[i+k]);
+      let maxWind = 0, sumWind = 0;
+      let maxProb = 0, sumProb = 0;
+      let totalMm = 0;
+      let dir = wd[i] ?? 0;
+
+      for (let k = 0; k < WINDOW; k++) {
+        const wind = w[i + k] ?? 0;
+        const prob = p[i + k] ?? 0;
+        const mm = rmm[i + k] ?? 0;
+
+        maxWind = Math.max(maxWind, wind);
+        sumWind += wind;
+
+        maxProb = Math.max(maxProb, prob);
+        sumProb += prob;
+
+        totalMm += mm;
       }
 
-      const e = {i, sc, mw, mp, mr, dir};
-      if(!best || sc < best.sc) best = e;
-      if(!worst || sc > worst.sc) worst = e;
+      const avgWind = sumWind / WINDOW;
+      const avgProb = sumProb / WINDOW;
+      const sc = score(avgWind, maxProb, totalMm);
+
+      const e = { i, sc, maxWind, avgWind, maxProb, avgProb, totalMm, dir };
+
+      if (!best || sc < best.sc) best = e;
+      if (!worst || sc > worst.sc) worst = e;
     }
-    return {best, worst};
+
+    return { best, worst };
   }
 
-  function fill(tId, dId, e){
-    if(!e) {
+  function fill(tId, dId, e) {
+    if (!e) {
       document.getElementById(tId).textContent = "–";
       document.getElementById(dId).textContent = "";
       return;
     }
 
-    // ✅ Correct 3-hour window: end = start + WINDOW hours
     const startDate = new Date(t[e.i]);
     const endDate = new Date(startDate.getTime() + WINDOW * 60 * 60 * 1000);
 
     document.getElementById(tId).textContent =
-      `${fmtTime(startDate.toISOString())} – ${fmtTime(endDate.toISOString())}`;
+      `${fmtTime(startDate)} – ${fmtTime(endDate)}`;
 
     document.getElementById(dId).textContent =
-      `Wind: ${e.mw.toFixed(0)} km/h (${windDir(e.dir)}) · ` +
-      `Wave height: ~${waveProxy(e.mw)} cm · ` +
-      `Rain chance: ≤ ${e.mp}%`;
+      `Wind: avg ${e.avgWind.toFixed(0)} / max ${e.maxWind.toFixed(0)} km/h (${windDir(e.dir)}) · ` +
+      `Wave height: ~${waveProxy(e.maxWind)} cm · ` +
+      `Rain: ≤ ${e.maxProb.toFixed(0)}% (avg ${e.avgProb.toFixed(0)}%) · ` +
+      `${e.totalMm.toFixed(1)} mm`;
   }
 
   const tBW = bestWorst(today);
@@ -225,6 +203,19 @@ async function load() {
   fill("bestToday", "bestTodayDetail", tBW.best);
   fill("worstToday", "worstTodayDetail", tBW.worst);
   fill("bestTomorrow", "bestTomorrowDetail", tmBW.best);
+
+  // If best and worst look basically the same, tell the user.
+  if (tBW.best && tBW.worst) {
+    const same =
+      Math.abs(tBW.best.avgWind - tBW.worst.avgWind) < 0.5 &&
+      Math.abs(tBW.best.maxProb - tBW.worst.maxProb) < 1 &&
+      Math.abs(tBW.best.totalMm - tBW.worst.totalMm) < 0.1;
+
+    if (same) {
+      document.getElementById("tieNote").textContent =
+        "Note: Today’s forecast is very uniform — windows have similar wind/rain, so best & worst may look alike.";
+    }
+  }
 }
 
 load();
