@@ -18,7 +18,7 @@
     border-radius: 18px;
     padding: 24px 28px;
     background: rgba(255,255,255,0.06);
-    max-width: 560px;
+    max-width: 580px;
     margin: 0 auto;
     text-align: center;
   }
@@ -29,7 +29,7 @@
   }
 
   .section {
-    margin-top: 18px;
+    margin-top: 20px;
   }
 
   .label {
@@ -40,7 +40,7 @@
   .time {
     font-size: 36px;
     font-weight: bold;
-    margin: 4px 0;
+    margin: 6px 0;
   }
 
   .detail {
@@ -60,19 +60,19 @@
   <h2>🚤 Boating Conditions</h2>
 
   <div class="section">
-    <div class="label">Best time today</div>
+    <div class="label">Best time today (3h)</div>
     <div id="bestToday" class="time good">–</div>
     <div id="bestTodayDetail" class="detail"></div>
   </div>
 
   <div class="section">
-    <div class="label">Worst time today</div>
+    <div class="label">Worst time today (3h)</div>
     <div id="worstToday" class="time bad">–</div>
     <div id="worstTodayDetail" class="detail"></div>
   </div>
 
   <div class="section">
-    <div class="label">Best time tomorrow</div>
+    <div class="label">Best time tomorrow (3h)</div>
     <div id="bestTomorrow" class="time neutral">–</div>
     <div id="bestTomorrowDetail" class="detail"></div>
   </div>
@@ -83,10 +83,17 @@ const LAT = -27.1153;
 const LON = 152.5565;
 const TZ = "Australia/Brisbane";
 
-const WIND_OK = 15;      // km/h
-const RAIN_PROB_OK = 20;
-const RAIN_MM_OK = 0.2;
-const WINDOW = 2;
+const WINDOW = 3; // ⏱ 3-hour window
+
+// Simple inland wave proxy (cm) based on wind
+function waveProxy(windKmh) {
+  if (windKmh < 5) return 0;
+  if (windKmh < 10) return 10;
+  if (windKmh < 15) return 20;
+  if (windKmh < 20) return 35;
+  if (windKmh < 25) return 50;
+  return 70;
+}
 
 function fmt(t) {
   return new Date(t).toLocaleTimeString("en-AU", {
@@ -131,7 +138,7 @@ async function load() {
     for(let i=0;i<t.length-WINDOW;i++){
       if(!t[i].startsWith(dateStr)) continue;
       const hour = new Date(t[i]).getHours();
-      if(hour < 6 || hour > 16) continue;
+      if(hour < 6 || hour > 15) continue;
 
       let mw=0, mp=0, mr=0, sc=0, dir=wd[i];
       for(let k=0;k<WINDOW;k++){
@@ -148,29 +155,21 @@ async function load() {
     return {best, worst};
   }
 
-  const todayBW = bestWorst(today);
-  const tomBW = bestWorst(tomorrow);
+  const tBW = bestWorst(today);
+  const tmBW = bestWorst(tomorrow);
 
-  if(todayBW.best){
-    document.getElementById("bestToday").textContent =
-      `${fmt(t[todayBW.best.i])} – ${fmt(t[todayBW.best.i+1])}`;
-    document.getElementById("bestTodayDetail").textContent =
-      `${windArrow(todayBW.best.dir)} ${todayBW.best.mw.toFixed(0)} km/h · Rain ≤ ${todayBW.best.mp}%`;
+  function fill(idT, idD, e){
+    if(!e) return;
+    document.getElementById(idT).textContent =
+      `${fmt(t[e.i])} – ${fmt(t[e.i+WINDOW-1])}`;
+
+    document.getElementById(idD).textContent =
+      `${windArrow(e.dir)} ${e.mw.toFixed(0)} km/h · 🌊 ~${waveProxy(e.mw)} cm · 🌧 ≤ ${e.mp}%`;
   }
 
-  if(todayBW.worst){
-    document.getElementById("worstToday").textContent =
-      `${fmt(t[todayBW.worst.i])} – ${fmt(t[todayBW.worst.i+1])}`;
-    document.getElementById("worstTodayDetail").textContent =
-      `${windArrow(todayBW.worst.dir)} ${todayBW.worst.mw.toFixed(0)} km/h · Rain ≥ ${todayBW.worst.mp}%`;
-  }
-
-  if(tomBW.best){
-    document.getElementById("bestTomorrow").textContent =
-      `${fmt(t[tomBW.best.i])} – ${fmt(t[tomBW.best.i+1])}`;
-    document.getElementById("bestTomorrowDetail").textContent =
-      `${windArrow(tomBW.best.dir)} ${tomBW.best.mw.toFixed(0)} km/h · Rain ≤ ${tomBW.best.mp}%`;
-  }
+  fill("bestToday", "bestTodayDetail", tBW.best);
+  fill("worstToday", "worstTodayDetail", tBW.worst);
+  fill("bestTomorrow", "bestTomorrowDetail", tmBW.best);
 }
 
 load();
