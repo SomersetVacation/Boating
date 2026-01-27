@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Best Boating Time</title>
+
+<style>
+  body {
+    margin: 0;
+    background: black;
+    color: white;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+
+  .card {
+    border: 1px solid #333;
+    border-radius: 18px;
+    padding: 24px 28px;
+    background: rgba(255,255,255,0.06);
+    max-width: 520px;
+    margin: 0 auto;
+    text-align: center;
+  }
+
+  h2 {
+    margin: 0 0 12px;
+    font-size: 34px;
+  }
+
+  .time {
+    font-size: 40px;
+    font-weight: bold;
+    margin: 10px 0;
+  }
+
+  .detail {
+    font-size: 20px;
+    opacity: 0.85;
+    margin-top: 6px;
+  }
+
+  .badge {
+    margin-top: 10px;
+    font-size: 20px;
+  }
+</style>
+</head>
+
+<body>
+
+<div class="card">
+  <h2>🚤 Best Boating Time</h2>
+  <div id="bestTime" class="time">Loading…</div>
+  <div id="badge" class="badge"></div>
+  <div id="details" class="detail"></div>
+</div>
+
+<script>
+const LAT = -27.1153;
+const LON = 152.5565;
+
+const WIND_OK = 15;        // km/h
+const RAIN_PROB_OK = 20;  // %
+const RAIN_MM_OK = 0.2;   // mm
+const WINDOW = 2;         // hours
+
+function fmt(tzTime, tz) {
+  return new Date(tzTime).toLocaleTimeString("en-AU", {
+    timeZone: tz,
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+async function loadBoating() {
+  try {
+    const r = await fetch(
+      `https://api.open-meteo.com/v1/forecast` +
+      `?latitude=${LAT}&longitude=${LON}` +
+      `&hourly=wind_speed_10m,precipitation_probability,precipitation` +
+      `&timezone=Australia%2FBrisbane`,
+      { cache: "no-store" }
+    );
+
+    const j = await r.json();
+    const tz = j.timezone;
+    const t = j.hourly.time;
+    const wind = j.hourly.wind_speed_10m;
+    const prob = j.hourly.precipitation_probability;
+    const rain = j.hourly.precipitation;
+
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: tz });
+
+    let best = null;
+
+    for (let i = 0; i < t.length - WINDOW; i++) {
+      if (!t[i].startsWith(today)) continue;
+
+      const hour = new Date(t[i]).getHours();
+      if (hour < 6 || hour > 16) continue;
+
+      let maxWind = 0, maxProb = 0, sumRain = 0;
+
+      for (let k = 0; k < WINDOW; k++) {
+        maxWind = Math.max(maxWind, wind[i + k]);
+        maxProb = Math.max(maxProb, prob[i + k]);
+        sumRain += rain[i + k];
+      }
+
+      const ok = maxWind <= WIND_OK && maxProb <= RAIN_PROB_OK && sumRain <= RAIN_MM_OK;
+      const score = maxWind * 2 + maxProb + sumRain * 50;
+
+      if (!best || (ok && !best.ok) || (ok === best.ok && score < best.score)) {
+        best = { i, ok, score, maxWind, maxProb, sumRain };
+      }
+    }
+
+    if (!best) {
+      document.getElementById("bestTime").textContent = "No window today";
+      return;
+    }
+
+    document.getElementById("bestTime").textContent =
+      `${fmt(t[best.i], tz)} – ${fmt(t[best.i + WINDOW - 1], tz)}`;
+
+    document.getElementById("badge").textContent =
+      best.ok ? "✅ Calm & low rain" : "⚠️ Best available today";
+
+    document.getElementById("details").textContent =
+      `Wind ≤ ${best.maxWind.toFixed(0)} km/h · Rain ≤ ${best.maxProb.toFixed(0)}% · ${best.sumRain.toFixed(1)} mm`;
+
+  } catch {
+    document.getElementById("bestTime").textContent = "Forecast unavailable";
+  }
+}
+
+loadBoating();
+setInterval(loadBoating, 30 * 60 * 1000);
+</script>
+
+</body>
+</html>
