@@ -18,7 +18,7 @@
     border-radius: 18px;
     padding: 24px 28px;
     background: rgba(255,255,255,0.06);
-    max-width: 640px;
+    max-width: 580px;
     margin: 0 auto;
     text-align: center;
   }
@@ -29,7 +29,7 @@
   }
 
   .section {
-    margin-top: 18px;
+    margin-top: 20px;
   }
 
   .label {
@@ -51,39 +51,18 @@
   .good { color: #8fff9a; }
   .bad  { color: #ff9a9a; }
   .neutral { color: #ffd27d; }
-
-  .meta {
-    margin-top: 18px;
-    padding-top: 14px;
-    border-top: 1px solid #222;
-    font-size: 14px;
-    opacity: 0.75;
-    line-height: 1.4;
-  }
-
-  .meta a{
-    color:#9fd4ff;
-    text-decoration:none;
-  }
-  .meta a:hover{ text-decoration:underline; }
 </style>
 </head>
 
 <body>
 
 <div class="card">
-  <h2>Boating Conditions (3-hour windows)</h2>
+  <h2>Boating Conditions</h2>
 
   <div class="section">
     <div class="label">Best time today (3h)</div>
     <div id="bestToday" class="time good">–</div>
     <div id="bestTodayDetail" class="detail"></div>
-  </div>
-
-  <div class="section">
-    <div class="label">Medium time today (3h)</div>
-    <div id="mediumToday" class="time neutral">–</div>
-    <div id="mediumTodayDetail" class="detail"></div>
   </div>
 
   <div class="section">
@@ -97,23 +76,13 @@
     <div id="bestTomorrow" class="time neutral">–</div>
     <div id="bestTomorrowDetail" class="detail"></div>
   </div>
-
-  <div class="meta">
-    <div id="metaLine1">Last updated: –</div>
-    <div id="metaLine2">
-      Source: <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a> (hourly forecast: wind + precipitation)
-    </div>
-    <div>Refresh: every 30 minutes</div>
-  </div>
 </div>
 
 <script>
 const LAT = -27.1153;
 const LON = 152.5565;
 const TZ = "Australia/Brisbane";
-
-// 3-hour boating window (you can change this to 2 or 4 if you want)
-const WINDOW_HOURS = 3;
+const WINDOW = 3;
 
 // Inland wave proxy (cm)
 function waveProxy(w) {
@@ -125,18 +94,9 @@ function waveProxy(w) {
   return 70;
 }
 
-function fmtTimeFromDate(d) {
-  return d.toLocaleTimeString("en-AU", {
+function fmt(t) {
+  return new Date(t).toLocaleTimeString("en-AU", {
     timeZone: TZ,
-    hour: "2-digit",
-    minute: "2-digit"
-  });
-}
-
-function fmtNow() {
-  return new Date().toLocaleString("en-AU", {
-    timeZone: TZ,
-    weekday: "short",
     hour: "2-digit",
     minute: "2-digit"
   });
@@ -147,48 +107,75 @@ function windDir(deg) {
   return dirs[Math.round(deg / 45) % 8];
 }
 
-// Lower score = better boating
 function score(w, p, r) {
-  return (w * 2) + (p * 1) + (r * 50);
+  return w * 2 + p + r * 50;
 }
 
 async function load() {
-  const apiUrl =
+  const r = await fetch(
     `https://api.open-meteo.com/v1/forecast` +
     `?latitude=${LAT}&longitude=${LON}` +
     `&hourly=wind_speed_10m,wind_direction_10m,precipitation_probability,precipitation` +
-    `&timezone=${encodeURIComponent(TZ)}`;
+    `&timezone=${encodeURIComponent(TZ)}`,
+    { cache: "no-store" }
+  );
 
-  const resp = await fetch(apiUrl, { cache: "no-store" });
-  const j = await resp.json();
-
+  const j = await r.json();
   const t = j.hourly.time;
   const w = j.hourly.wind_speed_10m;
   const wd = j.hourly.wind_direction_10m;
   const p = j.hourly.precipitation_probability;
   const rmm = j.hourly.precipitation;
 
-  // Show “when updated” on screen (this is when your display fetched it)
-  document.getElementById("metaLine1").textContent = `Last updated: ${fmtNow()}`;
-
   const today = new Date().toLocaleDateString("en-CA", { timeZone: TZ });
-  const tomorrow = new Date(Date.now() + 86400000).toLocaleDateString("en-CA", { timeZone: TZ });
+  const tomorrow = new Date(Date.now()+86400000)
+    .toLocaleDateString("en-CA", { timeZone: TZ });
 
-  // Build all candidate 3-hour windows for a given day
-  function windowsFor(dateStr) {
-    const list = [];
-    for (let i = 0; i < t.length - WINDOW_HOURS; i++) {
-      if (!t[i].startsWith(dateStr)) continue;
+  function bestWorst(dateStr) {
+    let best=null, worst=null;
 
+    for(let i=0;i<t.length-WINDOW;i++){
+      if(!t[i].startsWith(dateStr)) continue;
       const hour = new Date(t[i]).getHours();
-      // Boating hours 6am–6pm (last window must fit)
-      if (hour < 6 || hour > (18 - WINDOW_HOURS)) continue;
+      if(hour < 6 || hour > 15) continue;
 
-      let mw = 0, mp = 0, mr = 0, sc = 0, dir = wd[i];
-
-      for (let k = 0; k < WINDOW_HOURS; k++) {
-        mw = Math.max(mw, w[i + k] ?? 0);
-        mp = Math.max(mp, p[i + k] ?? 0);
-        mr += (rmm[i + k] ?? 0);
-        sc += score(w[i + k] ?? 0, p[i + k] ?? 0, rmm[i + k] ?? 0);
+      let mw=0, mp=0, mr=0, sc=0, dir=wd[i];
+      for(let k=0;k<WINDOW;k++){
+        mw = Math.max(mw, w[i+k]);
+        mp = Math.max(mp, p[i+k]);
+        mr += rmm[i+k];
+        sc += score(w[i+k], p[i+k], rmm[i+k]);
       }
+
+      const e = {i, sc, mw, mp, mr, dir};
+      if(!best || sc < best.sc) best = e;
+      if(!worst || sc > worst.sc) worst = e;
+    }
+    return {best, worst};
+  }
+
+  function fill(tId, dId, e){
+    if(!e) return;
+    document.getElementById(tId).textContent =
+      `${fmt(t[e.i])} – ${fmt(t[e.i+WINDOW-1])}`;
+
+    document.getElementById(dId).textContent =
+      `Wind: ${e.mw.toFixed(0)} km/h (${windDir(e.dir)}) · ` +
+      `Wave height: ~${waveProxy(e.mw)} cm · ` +
+      `Rain chance: ≤ ${e.mp}%`;
+  }
+
+  const tBW = bestWorst(today);
+  const tmBW = bestWorst(tomorrow);
+
+  fill("bestToday", "bestTodayDetail", tBW.best);
+  fill("worstToday", "worstTodayDetail", tBW.worst);
+  fill("bestTomorrow", "bestTomorrowDetail", tmBW.best);
+}
+
+load();
+setInterval(load, 30 * 60 * 1000);
+</script>
+
+</body>
+</html>
