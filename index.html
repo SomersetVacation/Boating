@@ -57,7 +57,7 @@
 <body>
 
 <div class="card">
-  <h2>🚤 Boating Conditions</h2>
+  <h2>Boating Conditions</h2>
 
   <div class="section">
     <div class="label">Best time today (3h)</div>
@@ -82,16 +82,15 @@
 const LAT = -27.1153;
 const LON = 152.5565;
 const TZ = "Australia/Brisbane";
+const WINDOW = 3;
 
-const WINDOW = 3; // ⏱ 3-hour window
-
-// Simple inland wave proxy (cm) based on wind
-function waveProxy(windKmh) {
-  if (windKmh < 5) return 0;
-  if (windKmh < 10) return 10;
-  if (windKmh < 15) return 20;
-  if (windKmh < 20) return 35;
-  if (windKmh < 25) return 50;
+// Inland wave proxy (cm)
+function waveProxy(w) {
+  if (w < 5) return 0;
+  if (w < 10) return 10;
+  if (w < 15) return 20;
+  if (w < 20) return 35;
+  if (w < 25) return 50;
   return 70;
 }
 
@@ -103,9 +102,9 @@ function fmt(t) {
   });
 }
 
-function windArrow(deg) {
-  const arrows = ["⬆️","↗️","➡️","↘️","⬇️","↙️","⬅️","↖️"];
-  return arrows[Math.round(deg / 45) % 8];
+function windDir(deg) {
+  const dirs = ["N","NE","E","SE","S","SW","W","NW"];
+  return dirs[Math.round(deg / 45) % 8];
 }
 
 function score(w, p, r) {
@@ -148,24 +147,26 @@ async function load() {
         sc += score(w[i+k], p[i+k], rmm[i+k]);
       }
 
-      const entry = {i, sc, mw, mp, mr, dir};
-      if(!best || sc < best.sc) best = entry;
-      if(!worst || sc > worst.sc) worst = entry;
+      const e = {i, sc, mw, mp, mr, dir};
+      if(!best || sc < best.sc) best = e;
+      if(!worst || sc > worst.sc) worst = e;
     }
     return {best, worst};
   }
 
-  const tBW = bestWorst(today);
-  const tmBW = bestWorst(tomorrow);
-
-  function fill(idT, idD, e){
+  function fill(tId, dId, e){
     if(!e) return;
-    document.getElementById(idT).textContent =
+    document.getElementById(tId).textContent =
       `${fmt(t[e.i])} – ${fmt(t[e.i+WINDOW-1])}`;
 
-    document.getElementById(idD).textContent =
-      `${windArrow(e.dir)} ${e.mw.toFixed(0)} km/h · 🌊 ~${waveProxy(e.mw)} cm · 🌧 ≤ ${e.mp}%`;
+    document.getElementById(dId).textContent =
+      `Wind: ${e.mw.toFixed(0)} km/h (${windDir(e.dir)}) · ` +
+      `Wave height: ~${waveProxy(e.mw)} cm · ` +
+      `Rain chance: ≤ ${e.mp}%`;
   }
+
+  const tBW = bestWorst(today);
+  const tmBW = bestWorst(tomorrow);
 
   fill("bestToday", "bestTodayDetail", tBW.best);
   fill("worstToday", "worstTodayDetail", tBW.worst);
