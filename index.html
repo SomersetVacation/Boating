@@ -125,8 +125,8 @@ function waveProxy(w) {
   return 70;
 }
 
-function fmtTime(iso) {
-  return new Date(iso).toLocaleTimeString("en-AU", {
+function fmtTimeFromDate(d) {
+  return d.toLocaleTimeString("en-AU", {
     timeZone: TZ,
     hour: "2-digit",
     minute: "2-digit"
@@ -192,56 +192,3 @@ async function load() {
         mr += (rmm[i + k] ?? 0);
         sc += score(w[i + k] ?? 0, p[i + k] ?? 0, rmm[i + k] ?? 0);
       }
-
-      list.push({ i, sc, mw, mp, mr, dir });
-    }
-    return list;
-  }
-
-  function pickBestMediumWorst(list) {
-    if (!list || list.length === 0) return { best: null, medium: null, worst: null };
-    const sorted = [...list].sort((a, b) => a.sc - b.sc);
-    const best = sorted[0];
-    const worst = sorted[sorted.length - 1];
-    const medium = sorted[Math.floor(sorted.length / 2)]; // median quality
-    return { best, medium, worst };
-  }
-
-  function fill(timeId, detailId, e) {
-    if (!e) {
-      document.getElementById(timeId).textContent = "–";
-      document.getElementById(detailId).textContent = "";
-      return;
-    }
-
-    const from = fmtTime(t[e.i]);
-    const to = fmtTime(t[e.i + WINDOW_HOURS - 1]);
-
-    document.getElementById(timeId).textContent = `${from} – ${to}`;
-
-    document.getElementById(detailId).textContent =
-      `Wind: ${e.mw.toFixed(0)} km/h (${windDir(e.dir)}) · ` +
-      `Wave height: ~${waveProxy(e.mw)} cm · ` +
-      `Rain chance: ≤ ${e.mp.toFixed(0)}%`;
-  }
-
-  // Today
-  const todayWindows = windowsFor(today);
-  const todayPick = pickBestMediumWorst(todayWindows);
-
-  fill("bestToday", "bestTodayDetail", todayPick.best);
-  fill("mediumToday", "mediumTodayDetail", todayPick.medium);
-  fill("worstToday", "worstTodayDetail", todayPick.worst);
-
-  // Tomorrow (best only)
-  const tomWindows = windowsFor(tomorrow);
-  const tomPick = pickBestMediumWorst(tomWindows);
-  fill("bestTomorrow", "bestTomorrowDetail", tomPick.best);
-}
-
-load();
-setInterval(load, 30 * 60 * 1000); // refresh every 30 minutes
-</script>
-
-</body>
-</html>
