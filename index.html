@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Best Boating Time</title>
+<title>Boating Conditions</title>
 
 <style>
   body {
@@ -18,125 +18,163 @@
     border-radius: 18px;
     padding: 24px 28px;
     background: rgba(255,255,255,0.06);
-    max-width: 520px;
+    max-width: 560px;
     margin: 0 auto;
     text-align: center;
   }
 
   h2 {
-    margin: 0 0 12px;
+    margin: 0 0 14px;
     font-size: 34px;
   }
 
+  .section {
+    margin-top: 18px;
+  }
+
+  .label {
+    font-size: 18px;
+    opacity: 0.8;
+  }
+
   .time {
-    font-size: 40px;
+    font-size: 36px;
     font-weight: bold;
-    margin: 10px 0;
+    margin: 4px 0;
   }
 
   .detail {
-    font-size: 20px;
+    font-size: 18px;
     opacity: 0.85;
-    margin-top: 6px;
   }
 
-  .badge {
-    margin-top: 10px;
-    font-size: 20px;
-  }
+  .good { color: #8fff9a; }
+  .bad  { color: #ff9a9a; }
+  .neutral { color: #ffd27d; }
 </style>
 </head>
 
 <body>
 
 <div class="card">
-  <h2>🚤 Best Boating Time</h2>
-  <div id="bestTime" class="time">Loading…</div>
-  <div id="badge" class="badge"></div>
-  <div id="details" class="detail"></div>
+  <h2>🚤 Boating Conditions</h2>
+
+  <div class="section">
+    <div class="label">Best time today</div>
+    <div id="bestToday" class="time good">–</div>
+    <div id="bestTodayDetail" class="detail"></div>
+  </div>
+
+  <div class="section">
+    <div class="label">Worst time today</div>
+    <div id="worstToday" class="time bad">–</div>
+    <div id="worstTodayDetail" class="detail"></div>
+  </div>
+
+  <div class="section">
+    <div class="label">Best time tomorrow</div>
+    <div id="bestTomorrow" class="time neutral">–</div>
+    <div id="bestTomorrowDetail" class="detail"></div>
+  </div>
 </div>
 
 <script>
 const LAT = -27.1153;
 const LON = 152.5565;
+const TZ = "Australia/Brisbane";
 
-const WIND_OK = 15;        // km/h
-const RAIN_PROB_OK = 20;  // %
-const RAIN_MM_OK = 0.2;   // mm
-const WINDOW = 2;         // hours
+const WIND_OK = 15;      // km/h
+const RAIN_PROB_OK = 20;
+const RAIN_MM_OK = 0.2;
+const WINDOW = 2;
 
-function fmt(tzTime, tz) {
-  return new Date(tzTime).toLocaleTimeString("en-AU", {
-    timeZone: tz,
+function fmt(t) {
+  return new Date(t).toLocaleTimeString("en-AU", {
+    timeZone: TZ,
     hour: "2-digit",
     minute: "2-digit"
   });
 }
 
-async function loadBoating() {
-  try {
-    const r = await fetch(
-      `https://api.open-meteo.com/v1/forecast` +
-      `?latitude=${LAT}&longitude=${LON}` +
-      `&hourly=wind_speed_10m,precipitation_probability,precipitation` +
-      `&timezone=Australia%2FBrisbane`,
-      { cache: "no-store" }
-    );
+function windArrow(deg) {
+  const arrows = ["⬆️","↗️","➡️","↘️","⬇️","↙️","⬅️","↖️"];
+  return arrows[Math.round(deg / 45) % 8];
+}
 
-    const j = await r.json();
-    const tz = j.timezone;
-    const t = j.hourly.time;
-    const wind = j.hourly.wind_speed_10m;
-    const prob = j.hourly.precipitation_probability;
-    const rain = j.hourly.precipitation;
+function score(w, p, r) {
+  return w * 2 + p + r * 50;
+}
 
-    const today = new Date().toLocaleDateString("en-CA", { timeZone: tz });
+async function load() {
+  const r = await fetch(
+    `https://api.open-meteo.com/v1/forecast` +
+    `?latitude=${LAT}&longitude=${LON}` +
+    `&hourly=wind_speed_10m,wind_direction_10m,precipitation_probability,precipitation` +
+    `&timezone=${encodeURIComponent(TZ)}`,
+    { cache: "no-store" }
+  );
 
-    let best = null;
+  const j = await r.json();
+  const t = j.hourly.time;
+  const w = j.hourly.wind_speed_10m;
+  const wd = j.hourly.wind_direction_10m;
+  const p = j.hourly.precipitation_probability;
+  const rmm = j.hourly.precipitation;
 
-    for (let i = 0; i < t.length - WINDOW; i++) {
-      if (!t[i].startsWith(today)) continue;
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: TZ });
+  const tomorrow = new Date(Date.now()+86400000)
+    .toLocaleDateString("en-CA", { timeZone: TZ });
 
+  function bestWorst(dateStr) {
+    let best=null, worst=null;
+
+    for(let i=0;i<t.length-WINDOW;i++){
+      if(!t[i].startsWith(dateStr)) continue;
       const hour = new Date(t[i]).getHours();
-      if (hour < 6 || hour > 16) continue;
+      if(hour < 6 || hour > 16) continue;
 
-      let maxWind = 0, maxProb = 0, sumRain = 0;
-
-      for (let k = 0; k < WINDOW; k++) {
-        maxWind = Math.max(maxWind, wind[i + k]);
-        maxProb = Math.max(maxProb, prob[i + k]);
-        sumRain += rain[i + k];
+      let mw=0, mp=0, mr=0, sc=0, dir=wd[i];
+      for(let k=0;k<WINDOW;k++){
+        mw = Math.max(mw, w[i+k]);
+        mp = Math.max(mp, p[i+k]);
+        mr += rmm[i+k];
+        sc += score(w[i+k], p[i+k], rmm[i+k]);
       }
 
-      const ok = maxWind <= WIND_OK && maxProb <= RAIN_PROB_OK && sumRain <= RAIN_MM_OK;
-      const score = maxWind * 2 + maxProb + sumRain * 50;
-
-      if (!best || (ok && !best.ok) || (ok === best.ok && score < best.score)) {
-        best = { i, ok, score, maxWind, maxProb, sumRain };
-      }
+      const entry = {i, sc, mw, mp, mr, dir};
+      if(!best || sc < best.sc) best = entry;
+      if(!worst || sc > worst.sc) worst = entry;
     }
+    return {best, worst};
+  }
 
-    if (!best) {
-      document.getElementById("bestTime").textContent = "No window today";
-      return;
-    }
+  const todayBW = bestWorst(today);
+  const tomBW = bestWorst(tomorrow);
 
-    document.getElementById("bestTime").textContent =
-      `${fmt(t[best.i], tz)} – ${fmt(t[best.i + WINDOW - 1], tz)}`;
+  if(todayBW.best){
+    document.getElementById("bestToday").textContent =
+      `${fmt(t[todayBW.best.i])} – ${fmt(t[todayBW.best.i+1])}`;
+    document.getElementById("bestTodayDetail").textContent =
+      `${windArrow(todayBW.best.dir)} ${todayBW.best.mw.toFixed(0)} km/h · Rain ≤ ${todayBW.best.mp}%`;
+  }
 
-    document.getElementById("badge").textContent =
-      best.ok ? "✅ Calm & low rain" : "⚠️ Best available today";
+  if(todayBW.worst){
+    document.getElementById("worstToday").textContent =
+      `${fmt(t[todayBW.worst.i])} – ${fmt(t[todayBW.worst.i+1])}`;
+    document.getElementById("worstTodayDetail").textContent =
+      `${windArrow(todayBW.worst.dir)} ${todayBW.worst.mw.toFixed(0)} km/h · Rain ≥ ${todayBW.worst.mp}%`;
+  }
 
-    document.getElementById("details").textContent =
-      `Wind ≤ ${best.maxWind.toFixed(0)} km/h · Rain ≤ ${best.maxProb.toFixed(0)}% · ${best.sumRain.toFixed(1)} mm`;
-
-  } catch {
-    document.getElementById("bestTime").textContent = "Forecast unavailable";
+  if(tomBW.best){
+    document.getElementById("bestTomorrow").textContent =
+      `${fmt(t[tomBW.best.i])} – ${fmt(t[tomBW.best.i+1])}`;
+    document.getElementById("bestTomorrowDetail").textContent =
+      `${windArrow(tomBW.best.dir)} ${tomBW.best.mw.toFixed(0)} km/h · Rain ≤ ${tomBW.best.mp}%`;
   }
 }
 
-loadBoating();
-setInterval(loadBoating, 30 * 60 * 1000);
+load();
+setInterval(load, 30 * 60 * 1000);
 </script>
 
 </body>
