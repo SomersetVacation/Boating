@@ -51,6 +51,20 @@
   .good { color: #8fff9a; }
   .bad  { color: #ff9a9a; }
   .neutral { color: #ffd27d; }
+
+  .meta {
+    margin-top: 18px;
+    padding-top: 12px;
+    border-top: 1px solid #222;
+    font-size: 14px;
+    opacity: 0.75;
+    line-height: 1.35;
+  }
+  .meta a{
+    color:#9fd4ff;
+    text-decoration:none;
+  }
+  .meta a:hover{ text-decoration:underline; }
 </style>
 </head>
 
@@ -76,6 +90,15 @@
     <div id="bestTomorrow" class="time neutral">–</div>
     <div id="bestTomorrowDetail" class="detail"></div>
   </div>
+
+  <div class="meta">
+    <div id="metaUpdated">Last updated: –</div>
+    <div id="metaNext">Next update: –</div>
+    <div id="metaSource">
+      Source: <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a>
+      (hourly forecast: wind + precipitation)
+    </div>
+  </div>
 </div>
 
 <script>
@@ -83,6 +106,8 @@ const LAT = -27.1153;
 const LON = 152.5565;
 const TZ = "Australia/Brisbane";
 const WINDOW = 3;
+
+const REFRESH_MS = 30 * 60 * 1000; // 30 minutes
 
 // Inland wave proxy (cm)
 function waveProxy(w) {
@@ -94,9 +119,18 @@ function waveProxy(w) {
   return 70;
 }
 
-function fmt(t) {
-  return new Date(t).toLocaleTimeString("en-AU", {
+function fmtTime(iso) {
+  return new Date(iso).toLocaleTimeString("en-AU", {
     timeZone: TZ,
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function fmtClock(d) {
+  return d.toLocaleString("en-AU", {
+    timeZone: TZ,
+    weekday: "short",
     hour: "2-digit",
     minute: "2-digit"
   });
@@ -111,7 +145,16 @@ function score(w, p, r) {
   return w * 2 + p + r * 50;
 }
 
+function setMetaTimes() {
+  const now = new Date();
+  const next = new Date(now.getTime() + REFRESH_MS);
+  document.getElementById("metaUpdated").textContent = `Last updated: ${fmtClock(now)}`;
+  document.getElementById("metaNext").textContent = `Next update: ${fmtClock(next)}`;
+}
+
 async function load() {
+  setMetaTimes();
+
   const r = await fetch(
     `https://api.open-meteo.com/v1/forecast` +
     `?latitude=${LAT}&longitude=${LON}` +
@@ -136,8 +179,10 @@ async function load() {
 
     for(let i=0;i<t.length-WINDOW;i++){
       if(!t[i].startsWith(dateStr)) continue;
+
       const hour = new Date(t[i]).getHours();
-      if(hour < 6 || hour > 15) continue;
+      // boating hours 6am–6pm, ensure window fits:
+      if(hour < 6 || hour > (18 - WINDOW)) continue;
 
       let mw=0, mp=0, mr=0, sc=0, dir=wd[i];
       for(let k=0;k<WINDOW;k++){
@@ -155,9 +200,18 @@ async function load() {
   }
 
   function fill(tId, dId, e){
-    if(!e) return;
+    if(!e) {
+      document.getElementById(tId).textContent = "–";
+      document.getElementById(dId).textContent = "";
+      return;
+    }
+
+    // ✅ Correct 3-hour window: end = start + WINDOW hours
+    const startDate = new Date(t[e.i]);
+    const endDate = new Date(startDate.getTime() + WINDOW * 60 * 60 * 1000);
+
     document.getElementById(tId).textContent =
-      `${fmt(t[e.i])} – ${fmt(t[e.i+WINDOW-1])}`;
+      `${fmtTime(startDate.toISOString())} – ${fmtTime(endDate.toISOString())}`;
 
     document.getElementById(dId).textContent =
       `Wind: ${e.mw.toFixed(0)} km/h (${windDir(e.dir)}) · ` +
@@ -174,7 +228,7 @@ async function load() {
 }
 
 load();
-setInterval(load, 30 * 60 * 1000);
+setInterval(load, REFRESH_MS);
 </script>
 
 </body>
