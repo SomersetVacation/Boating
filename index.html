@@ -13,7 +13,6 @@
     font-family:Arial, Helvetica, sans-serif;
   }
 
-  /* NARROW */
   .card{
     border:1px solid #333;
     border-radius:14px;
@@ -70,7 +69,7 @@
     border:1px solid currentColor;
   }
 
-  /* NEW: 2x2 grid to reduce height */
+  /* 2x2 grid */
   .kv{
     display:grid;
     grid-template-columns: 1fr 1fr;
@@ -79,8 +78,26 @@
     line-height:1.25;
   }
 
-  .cell .k{ opacity:.70; font-size:12px; }
-  .cell .v{ font-weight:700; }
+  /* NEW: label + value on ONE line */
+  .cell{
+    display:flex;
+    gap:6px;
+    align-items:baseline;
+    white-space:nowrap;          /* keep it one line */
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .k{
+    opacity:.70;
+    font-size:12px;
+    font-weight:700;
+    flex:0 0 auto;
+  }
+  .v{
+    font-weight:800;
+    flex:1 1 auto;
+    min-width:0;
+  }
 
   .good { color:#8fff9a; }
   .ok   { color:#ffd27d; }
@@ -244,7 +261,6 @@ async function load(){
     };
 
     const c=classify(e);
-
     const eff = Math.max(e.maxWind, e.maxGust);
     const wave = waveProxy(eff);
 
@@ -257,25 +273,10 @@ async function load(){
       </div>
 
       <div class="kv">
-        <div class="cell">
-          <div class="k">Wind</div>
-          <div class="v">${e.avgWind.toFixed(0)} / ${e.maxWind.toFixed(0)} km/h (${windDir(e.dir)})</div>
-        </div>
-
-        <div class="cell">
-          <div class="k">Gust</div>
-          <div class="v">${e.avgGust.toFixed(0)} / ${e.maxGust.toFixed(0)} km/h</div>
-        </div>
-
-        <div class="cell">
-          <div class="k">Wave</div>
-          <div class="v">~${wave} cm</div>
-        </div>
-
-        <div class="cell">
-          <div class="k">Rain</div>
-          <div class="v">≤ ${e.maxProb}% · ${totalMm.toFixed(1)} mm</div>
-        </div>
+        <div class="cell"><span class="k">Wind</span><span class="v">${e.avgWind.toFixed(0)} / ${e.maxWind.toFixed(0)} km/h (${windDir(e.dir)})</span></div>
+        <div class="cell"><span class="k">Gust</span><span class="v">${e.avgGust.toFixed(0)} / ${e.maxGust.toFixed(0)} km/h</span></div>
+        <div class="cell"><span class="k">Wave</span><span class="v">~${wave} cm</span></div>
+        <div class="cell"><span class="k">Rain</span><span class="v">≤ ${e.maxProb}% · ${totalMm.toFixed(1)} mm</span></div>
       </div>
     `;
     wrap.appendChild(el);
