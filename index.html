@@ -7,81 +7,92 @@
 
 <style>
   body { margin:0; background:black; color:white; font-family:Arial, Helvetica, sans-serif; }
+
+  /* LESS WIDE + tighter padding */
   .card{
-    border:1px solid #333; border-radius:18px; padding:16px 16px;
-    background:rgba(255,255,255,0.06); max-width:760px; margin:0 auto;
+    border:1px solid #333; border-radius:16px;
+    padding:12px 12px;
+    background:rgba(255,255,255,0.06);
+    max-width:520px;   /* narrower */
+    margin:0 auto;
   }
-  h2 { margin:0 0 10px; font-size:24px; text-align:center; }
+
+  h2 { margin:0 0 6px; font-size:20px; text-align:center; }
 
   .subhead{
     display:flex; justify-content:space-between; align-items:center;
-    gap:10px; margin: 0 0 12px; opacity:.85; font-size:12px;
+    gap:8px; margin: 0 0 8px;
+    opacity:.85; font-size:11px;
   }
 
   /* ONE COLUMN (stacked) */
-  .stack{ display:flex; flex-direction:column; gap:10px; }
+  .stack{ display:flex; flex-direction:column; gap:8px; }
 
   .slot{
     border:1px solid #2a2a2a;
-    border-radius:14px;
-    padding:10px 12px;
+    border-radius:12px;
+    padding:8px 10px;
     background:rgba(0,0,0,0.15);
   }
 
   .slotTop{
     display:flex; justify-content:space-between; align-items:center;
-    margin-bottom:6px;
+    margin-bottom:4px;
   }
-  .slotTime{ font-size:15px; font-weight:700; }
+
+  .slotTime{ font-size:13px; font-weight:800; }
+
   .badge{
-    font-size:11px; font-weight:800;
-    padding:3px 8px; border-radius:999px;
+    font-size:10px; font-weight:900;
+    padding:2px 7px; border-radius:999px;
     border:1px solid currentColor;
     opacity:.95;
   }
 
+  /* tighter details */
   .kv{
     display:grid;
-    grid-template-columns: 120px 1fr;
-    gap:6px 10px;
-    font-size:12px;
-    line-height:1.25;
+    grid-template-columns: 92px 1fr;
+    gap:4px 8px;
+    font-size:11px;
+    line-height:1.22;
     opacity:.92;
   }
-  .k{ opacity:.72; }
+  .k{ opacity:.70; }
   .v{ font-weight:600; }
 
   .good { color:#8fff9a; }
   .ok   { color:#ffd27d; }
   .bad  { color:#ff9a9a; }
 
+  .legend{
+    margin-top:8px;
+    padding:8px 10px;
+    border:1px solid #2a2a2a;
+    border-radius:12px;
+    background:rgba(0,0,0,0.15);
+    font-size:11px;
+    line-height:1.3;
+  }
+  .legend .row{ margin-top:5px; }
+  .legend .tag{
+    display:inline-block;
+    padding:2px 6px;
+    border-radius:999px;
+    border:1px solid currentColor;
+    font-weight:900;
+    font-size:10px;
+    margin-right:6px;
+  }
+  .legend small{ opacity:.8; }
+
   .meta{
-    margin-top:12px; padding-top:10px; border-top:1px solid #222;
-    font-size:12px; opacity:.75; line-height:1.35;
+    margin-top:8px; padding-top:8px; border-top:1px solid #222;
+    font-size:10.5px; opacity:.75; line-height:1.25;
+    text-align:center;
   }
   .meta a{ color:#9fd4ff; text-decoration:none; }
   .meta a:hover{ text-decoration:underline; }
-
-  .legend{
-    margin-top:10px;
-    padding:10px 12px;
-    border:1px solid #2a2a2a;
-    border-radius:14px;
-    background:rgba(0,0,0,0.15);
-    font-size:12px;
-    line-height:1.35;
-  }
-  .legend .row{ margin-top:6px; }
-  .legend .tag{
-    display:inline-block;
-    padding:2px 7px;
-    border-radius:999px;
-    border:1px solid currentColor;
-    font-weight:800;
-    font-size:11px;
-    margin-right:8px;
-  }
-  .legend small{ opacity:.8; }
 </style>
 </head>
 
@@ -90,18 +101,18 @@
   <h2>Boating Conditions (Today)</h2>
 
   <div class="subhead">
-    <div>Somerset / Brisbane Valley</div>
+    <div>Somerset</div>
     <div id="nowLine">–</div>
   </div>
 
   <div id="slots" class="stack"></div>
 
   <div class="legend">
-    <div><strong>How the rating works</strong> <small>(simple + forgiving)</small></div>
-    <div class="row good"><span class="tag">GOOD</span>Effective wind (max of wind/gust) ≤ <strong>18 km/h</strong> and rain risk ≤ <strong>35%</strong></div>
-    <div class="row ok"><span class="tag">OK</span>Effective wind ≤ <strong>26 km/h</strong> and rain risk ≤ <strong>60%</strong></div>
-    <div class="row bad"><span class="tag">BAD</span>Above those thresholds (wind/gust strong or rain risk high)</div>
-    <div class="row"><small>“Effective wind” = max(wind max, gust max). Wave proxy is an estimate for inland conditions.</small></div>
+    <div><strong>Rating guide</strong> <small>(wind/gust + rain)</small></div>
+    <div class="row good"><span class="tag">GOOD</span>Effective wind ≤ <strong>18 km/h</strong> and rain ≤ <strong>35%</strong></div>
+    <div class="row ok"><span class="tag">OK</span>Effective wind ≤ <strong>26 km/h</strong> and rain ≤ <strong>60%</strong></div>
+    <div class="row bad"><span class="tag">BAD</span>Above those thresholds</div>
+    <div class="row"><small>Effective wind = max(wind max, gust max). Wave proxy is an estimate.</small></div>
   </div>
 
   <div class="meta">
@@ -109,7 +120,6 @@
     <div id="metaNext">Next update: –</div>
     <div>
       Source: <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a>
-      (hourly wind + gusts + precipitation)
     </div>
   </div>
 </div>
@@ -127,10 +137,8 @@ const DAY_SLOTS = [
   { start: 15, end: 18 }
 ];
 
-// Keep refresh frequent so it stays accurate (display is still 3-hour blocks)
 const REFRESH_MS = 30 * 60 * 1000;
 
-// Inland wave proxy (cm) based on max “effective wind” (wind/gust)
 function waveProxy(effectiveKmh) {
   if (effectiveKmh < 5) return 0;
   if (effectiveKmh < 10) return 10;
@@ -148,11 +156,9 @@ function windDir(deg) {
 function fmtClock(d) {
   return d.toLocaleString("en-AU", { timeZone: TZ, weekday: "short", hour: "2-digit", minute: "2-digit" });
 }
-
 function fmtHm(d) {
   return d.toLocaleTimeString("en-AU", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
 }
-
 function dateStrToday() {
   return new Date().toLocaleDateString("en-CA", { timeZone: TZ });
 }
@@ -165,10 +171,9 @@ function setMetaTimes() {
   document.getElementById("nowLine").textContent = `Now: ${fmtHm(now)}`;
 }
 
-// More forgiving classification (so "all bad" is less common)
+// forgiving classification
 function classify(slot) {
   const effective = Math.max(slot.maxWind, slot.maxGust);
-  // Use MAX rain probability in the 3-hour window
   const rainRisk = slot.maxProb;
 
   if (effective <= 18 && rainRisk <= 35) return { label:"GOOD", cls:"good" };
@@ -190,7 +195,7 @@ function buildSlot(j, dateStr, startHour, endHour) {
 
   let maxWind = 0, sumWind = 0;
   let maxGust = 0, sumGust = 0;
-  let maxProb = 0, sumProb = 0;
+  let maxProb = 0;
   let totalMm = 0;
   const dir = wd[i] ?? 0;
 
@@ -202,20 +207,19 @@ function buildSlot(j, dateStr, startHour, endHour) {
 
     maxWind = Math.max(maxWind, w); sumWind += w;
     maxGust = Math.max(maxGust, g); sumGust += g;
-    maxProb = Math.max(maxProb, p); sumProb += p;
+    maxProb = Math.max(maxProb, p);
     totalMm += r;
   }
 
   const avgWind = sumWind / WINDOW_HOURS;
   const avgGust = sumGust / WINDOW_HOURS;
-  const avgProb = sumProb / WINDOW_HOURS;
   const effective = Math.max(maxWind, maxGust);
 
   return {
     startHour, endHour,
     avgWind, maxWind,
     avgGust, maxGust,
-    avgProb, maxProb,
+    maxProb,
     totalMm,
     dir,
     wave: waveProxy(effective)
@@ -239,10 +243,10 @@ function renderSlots(slots) {
       </div>
 
       <div class="kv">
-        <div class="k">Wind</div><div class="v">avg ${s.avgWind.toFixed(0)} / max ${s.maxWind.toFixed(0)} km/h (${windDir(s.dir)})</div>
-        <div class="k">Gust</div><div class="v">avg ${s.avgGust.toFixed(0)} / max ${s.maxGust.toFixed(0)} km/h</div>
-        <div class="k">Wave proxy</div><div class="v">~${s.wave} cm</div>
-        <div class="k">Rain</div><div class="v">max ${s.maxProb.toFixed(0)}% · total ${s.totalMm.toFixed(1)} mm</div>
+        <div class="k">Wind</div><div class="v">${s.avgWind.toFixed(0)} / ${s.maxWind.toFixed(0)} km/h (${windDir(s.dir)})</div>
+        <div class="k">Gust</div><div class="v">${s.avgGust.toFixed(0)} / ${s.maxGust.toFixed(0)} km/h</div>
+        <div class="k">Wave</div><div class="v">~${s.wave} cm</div>
+        <div class="k">Rain</div><div class="v">max ${s.maxProb.toFixed(0)}% · ${s.totalMm.toFixed(1)} mm</div>
       </div>
     `;
     wrap.appendChild(el);
@@ -262,7 +266,6 @@ async function load() {
 
   const j = await r.json();
   const ds = dateStrToday();
-
   const slots = DAY_SLOTS.map(s => buildSlot(j, ds, s.start, s.end));
   renderSlots(slots);
 }
