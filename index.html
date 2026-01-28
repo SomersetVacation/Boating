@@ -7,61 +7,107 @@
 
 <style>
   body { margin:0; background:black; color:white; font-family:Arial, Helvetica, sans-serif; }
-  .card {
-    border:1px solid #333; border-radius:18px; padding:24px 28px;
-    background:rgba(255,255,255,0.06); max-width:580px; margin:0 auto; text-align:center;
-  }
-  h2 { margin:0 0 14px; font-size:34px; }
-  .section { margin-top:20px; }
-  .label { font-size:18px; opacity:.8; }
-  .time { font-size:36px; font-weight:bold; margin:6px 0; }
-  .detail { font-size:18px; opacity:.85; }
-  .good { color:#8fff9a; }
-  .bad  { color:#ff9a9a; }
-  .neutral { color:#ffd27d; }
 
-  .meta {
-    margin-top:18px; padding-top:12px; border-top:1px solid #222;
-    font-size:14px; opacity:.75; line-height:1.35;
+  .card{
+    border:1px solid #333; border-radius:18px; padding:18px 18px;
+    background:rgba(255,255,255,0.06); max-width:760px; margin:0 auto;
+  }
+
+  h2 { margin:0 0 10px; font-size:26px; text-align:center; }
+
+  .subhead{
+    display:flex; justify-content:space-between; align-items:center;
+    gap:10px; margin: 4px 0 12px; opacity:.85; font-size:13px;
+  }
+
+  .tabs{
+    display:flex; justify-content:center; gap:10px; margin: 0 0 12px;
+  }
+  .tab{
+    font-size:13px; padding:6px 10px; border-radius:999px;
+    border:1px solid #333; background:rgba(255,255,255,0.05);
+    cursor:pointer; user-select:none;
+  }
+  .tab.active{ border-color:#666; background:rgba(255,255,255,0.10); }
+
+  .grid{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:10px;
+  }
+  @media (max-width:680px){
+    .grid{ grid-template-columns:1fr; }
+  }
+
+  .slot{
+    border:1px solid #2a2a2a;
+    border-radius:14px;
+    padding:10px 12px;
+    background:rgba(0,0,0,0.15);
+  }
+
+  .slotTop{
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom:6px;
+  }
+  .slotTime{
+    font-size:16px; font-weight:700;
+  }
+
+  .badge{
+    font-size:12px; font-weight:700;
+    padding:4px 8px; border-radius:999px;
+    border:1px solid currentColor;
+    opacity:.95;
+  }
+
+  .kv{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:6px 10px;
+    font-size:12px;
+    line-height:1.25;
+    opacity:.92;
+  }
+  .k{ opacity:.75; }
+  .v{ font-weight:600; }
+
+  .good { color:#8fff9a; }
+  .ok   { color:#ffd27d; }
+  .bad  { color:#ff9a9a; }
+
+  .meta{
+    margin-top:12px; padding-top:10px; border-top:1px solid #222;
+    font-size:12px; opacity:.75; line-height:1.35; text-align:center;
   }
   .meta a{ color:#9fd4ff; text-decoration:none; }
   .meta a:hover{ text-decoration:underline; }
-
-  .note { margin-top:12px; font-size:14px; opacity:0.75; }
 </style>
 </head>
 
 <body>
 
 <div class="card">
-  <h2>Boating Conditions</h2>
+  <h2>Boating Conditions (3-hour blocks)</h2>
 
-  <div class="section">
-    <div class="label">Best time today (3h)</div>
-    <div id="bestToday" class="time good">–</div>
-    <div id="bestTodayDetail" class="detail"></div>
+  <div class="subhead">
+    <div id="headline">Somerset / Brisbane Valley</div>
+    <div id="nowLine">–</div>
   </div>
 
-  <div class="section">
-    <div class="label">Worst time today (3h)</div>
-    <div id="worstToday" class="time bad">–</div>
-    <div id="worstTodayDetail" class="detail"></div>
+  <div class="tabs">
+    <div id="tabToday" class="tab active">Today</div>
+    <div id="tabTomorrow" class="tab">Tomorrow</div>
   </div>
 
-  <div class="section">
-    <div class="label">Best time tomorrow (3h)</div>
-    <div id="bestTomorrow" class="time neutral">–</div>
-    <div id="bestTomorrowDetail" class="detail"></div>
-  </div>
-
-  <div id="tieNote" class="note"></div>
+  <div id="slots" class="grid"></div>
 
   <div class="meta">
     <div id="metaUpdated">Last updated: –</div>
     <div id="metaNext">Next update: –</div>
-    <div id="metaSource">
+    <div>
       Source: <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a>
-      (hourly forecast: wind + gusts + precipitation)
+      (hourly wind + gusts + precipitation)
     </div>
   </div>
 </div>
@@ -69,11 +115,22 @@
 <script>
 const LAT = -27.1153;
 const LON = 152.5565;
-const TZ = "Australia/Brisbane";
-const WINDOW = 3;
+const TZ  = "Australia/Brisbane";
+
+const WINDOW_HOURS = 3;
+
+// These are the 3h slots you asked for
+const DAY_SLOTS = [
+  { start: 6,  end: 9  },
+  { start: 9,  end: 12 },
+  { start: 12, end: 15 },
+  { start: 15, end: 18 }
+];
+
+// Refresh forecast fetch (keep this fairly frequent; the "3h blocks" are display blocks)
 const REFRESH_MS = 30 * 60 * 1000;
 
-// Inland wave proxy (cm) based on max “effective wind” (wind/gust)
+// Inland “wave proxy” (cm) based on max “effective wind” (wind/gust)
 function waveProxy(effectiveKmh) {
   if (effectiveKmh < 5) return 0;
   if (effectiveKmh < 10) return 10;
@@ -83,18 +140,40 @@ function waveProxy(effectiveKmh) {
   return 70;
 }
 
-function fmtTime(isoOrDate) {
-  const d = (isoOrDate instanceof Date) ? isoOrDate : new Date(isoOrDate);
-  return d.toLocaleTimeString("en-AU", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
+function windDir(deg) {
+  const dirs = ["N","NE","E","SE","S","SW","W","NW"];
+  return dirs[Math.round((deg ?? 0) / 45) % 8];
 }
 
 function fmtClock(d) {
   return d.toLocaleString("en-AU", { timeZone: TZ, weekday: "short", hour: "2-digit", minute: "2-digit" });
 }
 
-function windDir(deg) {
-  const dirs = ["N","NE","E","SE","S","SW","W","NW"];
-  return dirs[Math.round(deg / 45) % 8];
+function fmtHm(d) {
+  return d.toLocaleTimeString("en-AU", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
+}
+
+function dateStrFor(offsetDays=0) {
+  return new Date(Date.now() + offsetDays*86400000).toLocaleDateString("en-CA", { timeZone: TZ });
+}
+
+// Lower score = better boating
+function score(avgWind, avgGust, maxProb, totalMm) {
+  return (avgWind * 2.5) + (avgGust * 3.5) + (maxProb * 1.2) + (totalMm * 80);
+}
+
+// Thresholds for badge coloring (tweak if you want)
+function classify(slot) {
+  const effective = Math.max(slot.maxWind, slot.maxGust);
+  const sc = score(slot.avgWind, slot.avgGust, slot.maxProb, slot.totalMm);
+
+  // Simple blended classification:
+  // - Good: light wind/gust + low rain risk
+  // - OK: moderate
+  // - Bad: strong wind/gust or rain risk
+  if (effective <= 15 && slot.maxProb <= 25 && slot.totalMm <= 0.6 && sc < 95) return { label:"GOOD", cls:"good" };
+  if (effective <= 22 && slot.maxProb <= 45 && slot.totalMm <= 2.0 && sc < 150) return { label:"OK", cls:"ok" };
+  return { label:"BAD", cls:"bad" };
 }
 
 function setMetaTimes() {
@@ -102,17 +181,101 @@ function setMetaTimes() {
   const next = new Date(now.getTime() + REFRESH_MS);
   document.getElementById("metaUpdated").textContent = `Last updated: ${fmtClock(now)}`;
   document.getElementById("metaNext").textContent = `Next update: ${fmtClock(next)}`;
+  document.getElementById("nowLine").textContent = `Now: ${fmtHm(now)}`;
 }
 
-// Lower score = better boating
-// Gusts matter a lot, so we weight them heavily.
-function score(avgWind, avgGust, maxProb, totalMm) {
-  return (avgWind * 2.5) + (avgGust * 3.5) + (maxProb * 1.2) + (totalMm * 80);
+function buildSlotFromHours(j, dateStr, startHour, endHour) {
+  const t = j.hourly.time;
+  const wind = j.hourly.wind_speed_10m;
+  const gust = j.hourly.wind_gusts_10m;
+  const wd = j.hourly.wind_direction_10m;
+  const prob = j.hourly.precipitation_probability;
+  const mm = j.hourly.precipitation;
+
+  // Find index for the first hour in the slot (e.g. 06:00)
+  const startIsoPrefix = `${dateStr}T${String(startHour).padStart(2,'0')}:00`;
+  let i = t.findIndex(x => x.startsWith(startIsoPrefix));
+  if (i < 0) return null;
+
+  // Aggregate exactly WINDOW_HOURS hours
+  let maxWind = 0, sumWind = 0;
+  let maxGust = 0, sumGust = 0;
+  let maxProb = 0, sumProb = 0;
+  let totalMm = 0;
+  let dir = wd[i] ?? 0;
+
+  for (let k = 0; k < WINDOW_HOURS; k++) {
+    const w = wind[i + k] ?? 0;
+    const g = gust?.[i + k] ?? w;
+    const p = prob?.[i + k] ?? 0;
+    const r = mm?.[i + k] ?? 0;
+
+    maxWind = Math.max(maxWind, w); sumWind += w;
+    maxGust = Math.max(maxGust, g); sumGust += g;
+    maxProb = Math.max(maxProb, p); sumProb += p;
+    totalMm += r;
+  }
+
+  const avgWind = sumWind / WINDOW_HOURS;
+  const avgGust = sumGust / WINDOW_HOURS;
+  const avgProb = sumProb / WINDOW_HOURS;
+
+  const effective = Math.max(maxWind, maxGust);
+
+  return {
+    startHour, endHour,
+    avgWind, maxWind,
+    avgGust, maxGust,
+    avgProb, maxProb,
+    totalMm,
+    dir,
+    wave: waveProxy(effective),
+    sc: score(avgWind, avgGust, maxProb, totalMm)
+  };
 }
+
+function renderSlots(slots) {
+  const wrap = document.getElementById("slots");
+  wrap.innerHTML = "";
+
+  for (const s of slots) {
+    if (!s) continue;
+    const { label, cls } = classify(s);
+
+    const el = document.createElement("div");
+    el.className = `slot ${cls}`;
+
+    el.innerHTML = `
+      <div class="slotTop">
+        <div class="slotTime">${String(s.startHour).padStart(2,"0")}:00 – ${String(s.endHour).padStart(2,"0")}:00</div>
+        <div class="badge">${label}</div>
+      </div>
+
+      <div class="kv">
+        <div class="k">Wind (avg/max)</div><div class="v">${s.avgWind.toFixed(0)} / ${s.maxWind.toFixed(0)} km/h (${windDir(s.dir)})</div>
+        <div class="k">Gust (avg/max)</div><div class="v">${s.avgGust.toFixed(0)} / ${s.maxGust.toFixed(0)} km/h</div>
+        <div class="k">Wave proxy</div><div class="v">~${s.wave} cm</div>
+        <div class="k">Rain (max · total)</div><div class="v">≤ ${s.maxProb.toFixed(0)}% · ${s.totalMm.toFixed(1)} mm</div>
+      </div>
+    `;
+    wrap.appendChild(el);
+  }
+}
+
+let selectedDayOffset = 0;
+
+function setTab(dayOffset) {
+  selectedDayOffset = dayOffset;
+  document.getElementById("tabToday").classList.toggle("active", dayOffset === 0);
+  document.getElementById("tabTomorrow").classList.toggle("active", dayOffset === 1);
+  load(); // refresh display immediately for selected day (re-uses cached fetch each call)
+}
+
+document.getElementById("tabToday").addEventListener("click", () => setTab(0));
+document.getElementById("tabTomorrow").addEventListener("click", () => setTab(1));
 
 async function load() {
   setMetaTimes();
-  document.getElementById("tieNote").textContent = "";
 
   const r = await fetch(
     `https://api.open-meteo.com/v1/forecast` +
@@ -123,106 +286,11 @@ async function load() {
   );
 
   const j = await r.json();
-  const t = j.hourly.time;
-  const wind = j.hourly.wind_speed_10m;
-  const gust = j.hourly.wind_gusts_10m;
-  const wd = j.hourly.wind_direction_10m;
-  const prob = j.hourly.precipitation_probability;
-  const mm = j.hourly.precipitation;
 
-  const today = new Date().toLocaleDateString("en-CA", { timeZone: TZ });
-  const tomorrow = new Date(Date.now() + 86400000).toLocaleDateString("en-CA", { timeZone: TZ });
+  const ds = dateStrFor(selectedDayOffset);
 
-  function bestWorst(dateStr) {
-    let best = null, worst = null;
-
-    for (let i = 0; i < t.length - WINDOW; i++) {
-      if (!t[i].startsWith(dateStr)) continue;
-
-      const hour = new Date(t[i]).getHours();
-      if (hour < 6 || hour > (18 - WINDOW)) continue;
-
-      let maxWind = 0, sumWind = 0;
-      let maxGust = 0, sumGust = 0;
-      let maxProb = 0, sumProb = 0;
-      let totalMm = 0;
-      let dir = wd[i] ?? 0;
-
-      for (let k = 0; k < WINDOW; k++) {
-        const w = wind[i + k] ?? 0;
-        const g = gust?.[i + k] ?? w; // if gust missing, fall back to wind
-        const p = prob[i + k] ?? 0;
-        const r = mm[i + k] ?? 0;
-
-        maxWind = Math.max(maxWind, w);
-        sumWind += w;
-
-        maxGust = Math.max(maxGust, g);
-        sumGust += g;
-
-        maxProb = Math.max(maxProb, p);
-        sumProb += p;
-
-        totalMm += r;
-      }
-
-      const avgWind = sumWind / WINDOW;
-      const avgGust = sumGust / WINDOW;
-      const avgProb = sumProb / WINDOW;
-
-      const sc = score(avgWind, avgGust, maxProb, totalMm);
-
-      const e = { i, sc, maxWind, avgWind, maxGust, avgGust, maxProb, avgProb, totalMm, dir };
-
-      if (!best || sc < best.sc) best = e;
-      if (!worst || sc > worst.sc) worst = e;
-    }
-
-    return { best, worst };
-  }
-
-  function fill(timeId, detailId, e) {
-    if (!e) {
-      document.getElementById(timeId).textContent = "–";
-      document.getElementById(detailId).textContent = "";
-      return;
-    }
-
-    const startDate = new Date(t[e.i]);
-    const endDate = new Date(startDate.getTime() + WINDOW * 60 * 60 * 1000);
-
-    document.getElementById(timeId).textContent =
-      `${fmtTime(startDate)} – ${fmtTime(endDate)}`;
-
-    const effective = Math.max(e.maxWind, e.maxGust);
-
-    document.getElementById(detailId).textContent =
-      `Wind: avg ${e.avgWind.toFixed(0)} / max ${e.maxWind.toFixed(0)} km/h (${windDir(e.dir)}) · ` +
-      `Gusts: avg ${e.avgGust.toFixed(0)} / max ${e.maxGust.toFixed(0)} km/h · ` +
-      `Wave proxy: ~${waveProxy(effective)} cm · ` +
-      `Rain: ≤ ${e.maxProb.toFixed(0)}% · ${e.totalMm.toFixed(1)} mm`;
-  }
-
-  const tBW = bestWorst(today);
-  const tmBW = bestWorst(tomorrow);
-
-  fill("bestToday", "bestTodayDetail", tBW.best);
-  fill("worstToday", "worstTodayDetail", tBW.worst);
-  fill("bestTomorrow", "bestTomorrowDetail", tmBW.best);
-
-  // If best and worst are basically identical, show a note
-  if (tBW.best && tBW.worst) {
-    const same =
-      Math.abs(tBW.best.avgWind - tBW.worst.avgWind) < 0.5 &&
-      Math.abs(tBW.best.avgGust - tBW.worst.avgGust) < 0.5 &&
-      Math.abs(tBW.best.maxProb - tBW.worst.maxProb) < 1 &&
-      Math.abs(tBW.best.totalMm - tBW.worst.totalMm) < 0.1;
-
-    if (same) {
-      document.getElementById("tieNote").textContent =
-        "Note: Today’s forecast is very uniform — windows have similar wind/gust/rain, so best & worst may look alike.";
-    }
-  }
+  const slots = DAY_SLOTS.map(s => buildSlotFromHours(j, ds, s.start, s.end));
+  renderSlots(slots);
 }
 
 load();
