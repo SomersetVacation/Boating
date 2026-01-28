@@ -36,35 +36,12 @@
     opacity:.85;
   }
 
-  /* NEW: Tomorrow best strip */
-  .tomorrowBest{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    gap:10px;
-    margin:0 0 10px;
-    padding:8px 10px;
-    border:1px solid #2a2a2a;
-    border-radius:12px;
-    background:rgba(0,0,0,0.18);
-    font-size:13px;
-  }
-  .tomorrowBest .left{
-    display:flex;
-    flex-direction:column;
-    gap:2px;
-    min-width:0;
-  }
-  .tomorrowBest .label{
-    opacity:.70;
-    font-size:12px;
-    font-weight:800;
-  }
-  .tomorrowBest .time{
+  /* NEW: section title line */
+  .sectionTitle{
+    margin:10px 0 8px;
+    font-size:14px;
     font-weight:900;
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
+    opacity:.9;
   }
 
   .stack{
@@ -175,23 +152,18 @@
 
 <body>
 <div class="card">
-  <h2>Boating Conditions (Today)</h2>
+  <h2>Boating Conditions</h2>
 
   <div class="subhead">
     <div>Somerset</div>
     <div id="nowLine">–</div>
   </div>
 
-  <!-- NEW: Tomorrow best -->
-  <div id="tomorrowBest" class="tomorrowBest">
-    <div class="left">
-      <div class="label">Tomorrow best time</div>
-      <div id="tomorrowBestTime" class="time">–</div>
-    </div>
-    <div id="tomorrowBestBadge" class="badge neutral">–</div>
-  </div>
+  <div class="sectionTitle">Today</div>
+  <div id="slotsToday" class="stack"></div>
 
-  <div id="slots" class="stack"></div>
+  <div class="sectionTitle">Tomorrow (best 3h window)</div>
+  <div id="slotTomorrowBest" class="stack"></div>
 
   <div class="legend">
     <div><strong>Rating guide</strong></div>
@@ -253,10 +225,8 @@ function classify(e){
   return{label:"BAD",cls:"bad"};
 }
 
-/* NEW: lower score = better */
+/* lower score = better */
 function score(e){
-  // Gusts matter a lot, rain probability matters too.
-  // Tune if you want.
   return (e.avgWind*2.0) + (e.avgGust*3.0) + (e.maxProb*1.3) + (e.totalMm*80);
 }
 
@@ -291,6 +261,30 @@ function computeSlotMetrics(t, wind, gust, wd, prob, mm, dateStr, slot){
   };
 }
 
+function renderSlot(containerEl, labelPrefix, e){
+  const c = classify(e);
+  const s = e.slot;
+  const eff = Math.max(e.maxWind, e.maxGust);
+  const wave = waveProxy(eff);
+
+  const el = document.createElement("div");
+  el.className = `slot ${c.cls}`;
+  el.innerHTML = `
+    <div class="slotTop">
+      <div class="slotTime">${labelPrefix} ${String(s.start).padStart(2,"0")}:00 – ${String(s.end).padStart(2,"0")}:00</div>
+      <div class="badge">${c.label}</div>
+    </div>
+
+    <div class="kv">
+      <div class="cell"><span class="k">Wind</span><span class="v">${e.avgWind.toFixed(0)} / ${e.maxWind.toFixed(0)} km/h (${windDir(e.dir)})</span></div>
+      <div class="cell"><span class="k">Gust</span><span class="v">${e.avgGust.toFixed(0)} / ${e.maxGust.toFixed(0)} km/h</span></div>
+      <div class="cell"><span class="k">Wave</span><span class="v">~${wave} cm</span></div>
+      <div class="cell"><span class="k">Rain</span><span class="v">≤ ${e.maxProb}% · ${e.totalMm.toFixed(1)} mm</span></div>
+    </div>
+  `;
+  containerEl.appendChild(el);
+}
+
 async function load(){
   const now=new Date();
   document.getElementById("nowLine").textContent=`Now: ${fmtTime(now)}`;
@@ -310,40 +304,22 @@ async function load(){
   const prob=j.hourly.precipitation_probability;
   const mm=j.hourly.precipitation;
 
-  const wrap=document.getElementById("slots");
-  wrap.innerHTML="";
-
   const today = dayStr(0);
   const tomorrow = dayStr(1);
 
-  // ----- TODAY SLOTS -----
+  // TODAY
+  const todayWrap = document.getElementById("slotsToday");
+  todayWrap.innerHTML = "";
   for(const s of DAY_SLOTS){
     const e = computeSlotMetrics(t, wind, gust, wd, prob, mm, today, s);
     if(!e) continue;
-
-    const c=classify(e);
-    const eff = Math.max(e.maxWind, e.maxGust);
-    const wave = waveProxy(eff);
-
-    const el=document.createElement("div");
-    el.className=`slot ${c.cls}`;
-    el.innerHTML=`
-      <div class="slotTop">
-        <div class="slotTime">${String(s.start).padStart(2,"0")}:00 – ${String(s.end).padStart(2,"0")}:00</div>
-        <div class="badge">${c.label}</div>
-      </div>
-
-      <div class="kv">
-        <div class="cell"><span class="k">Wind</span><span class="v">${e.avgWind.toFixed(0)} / ${e.maxWind.toFixed(0)} km/h (${windDir(e.dir)})</span></div>
-        <div class="cell"><span class="k">Gust</span><span class="v">${e.avgGust.toFixed(0)} / ${e.maxGust.toFixed(0)} km/h</span></div>
-        <div class="cell"><span class="k">Wave</span><span class="v">~${wave} cm</span></div>
-        <div class="cell"><span class="k">Rain</span><span class="v">≤ ${e.maxProb}% · ${e.totalMm.toFixed(1)} mm</span></div>
-      </div>
-    `;
-    wrap.appendChild(el);
+    renderSlot(todayWrap, "", e);
   }
 
-  // ----- TOMORROW BEST SLOT (NEW) -----
+  // TOMORROW BEST
+  const tomWrap = document.getElementById("slotTomorrowBest");
+  tomWrap.innerHTML = "";
+
   let best = null;
   for(const s of DAY_SLOTS){
     const e = computeSlotMetrics(t, wind, gust, wd, prob, mm, tomorrow, s);
@@ -352,19 +328,13 @@ async function load(){
     if(!best || sc < best.sc) best = { e, sc };
   }
 
-  const bestTimeEl = document.getElementById("tomorrowBestTime");
-  const bestBadgeEl = document.getElementById("tomorrowBestBadge");
-
   if(best && best.e){
-    const s = best.e.slot;
-    const c = classify(best.e);
-    bestTimeEl.textContent = `${String(s.start).padStart(2,"0")}:00 – ${String(s.end).padStart(2,"0")}:00`;
-    bestBadgeEl.textContent = c.label;
-    bestBadgeEl.className = `badge ${c.cls}`;
+    renderSlot(tomWrap, "Best:", best.e);
   } else {
-    bestTimeEl.textContent = "–";
-    bestBadgeEl.textContent = "–";
-    bestBadgeEl.className = "badge";
+    const el = document.createElement("div");
+    el.className = "slot";
+    el.textContent = "No forecast data for tomorrow yet.";
+    tomWrap.appendChild(el);
   }
 
   document.getElementById("metaUpdated").textContent =
