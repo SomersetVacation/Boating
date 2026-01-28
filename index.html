@@ -27,11 +27,7 @@
   .meta a{ color:#9fd4ff; text-decoration:none; }
   .meta a:hover{ text-decoration:underline; }
 
-  .note {
-    margin-top:12px;
-    font-size:14px;
-    opacity:0.75;
-  }
+  .note { margin-top:12px; font-size:14px; opacity:0.75; }
 </style>
 </head>
 
@@ -65,7 +61,7 @@
     <div id="metaNext">Next update: –</div>
     <div id="metaSource">
       Source: <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a>
-      (hourly forecast: wind + precipitation)
+      (hourly forecast: wind + gusts + precipitation)
     </div>
   </div>
 </div>
@@ -77,13 +73,13 @@ const TZ = "Australia/Brisbane";
 const WINDOW = 3;
 const REFRESH_MS = 30 * 60 * 1000;
 
-// Inland wave proxy (cm) based on MAX wind in the window
-function waveProxy(w) {
-  if (w < 5) return 0;
-  if (w < 10) return 10;
-  if (w < 15) return 20;
-  if (w < 20) return 35;
-  if (w < 25) return 50;
+// Inland wave proxy (cm) based on max “effective wind” (wind/gust)
+function waveProxy(effectiveKmh) {
+  if (effectiveKmh < 5) return 0;
+  if (effectiveKmh < 10) return 10;
+  if (effectiveKmh < 15) return 20;
+  if (effectiveKmh < 20) return 35;
+  if (effectiveKmh < 25) return 50;
   return 70;
 }
 
@@ -108,9 +104,10 @@ function setMetaTimes() {
   document.getElementById("metaNext").textContent = `Next update: ${fmtClock(next)}`;
 }
 
-// Better score: average wind matters + any rain matters a lot
-function score(avgWind, maxProb, totalMm) {
-  return (avgWind * 3) + (maxProb * 1.2) + (totalMm * 80);
+// Lower score = better boating
+// Gusts matter a lot, so we weight them heavily.
+function score(avgWind, avgGust, maxProb, totalMm) {
+  return (avgWind * 2.5) + (avgGust * 3.5) + (maxProb * 1.2) + (totalMm * 80);
 }
 
 async function load() {
@@ -120,17 +117,18 @@ async function load() {
   const r = await fetch(
     `https://api.open-meteo.com/v1/forecast` +
     `?latitude=${LAT}&longitude=${LON}` +
-    `&hourly=wind_speed_10m,wind_direction_10m,precipitation_probability,precipitation` +
+    `&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation_probability,precipitation` +
     `&timezone=${encodeURIComponent(TZ)}`,
     { cache: "no-store" }
   );
 
   const j = await r.json();
   const t = j.hourly.time;
-  const w = j.hourly.wind_speed_10m;
+  const wind = j.hourly.wind_speed_10m;
+  const gust = j.hourly.wind_gusts_10m;
   const wd = j.hourly.wind_direction_10m;
-  const p = j.hourly.precipitation_probability;
-  const rmm = j.hourly.precipitation;
+  const prob = j.hourly.precipitation_probability;
+  const mm = j.hourly.precipitation;
 
   const today = new Date().toLocaleDateString("en-CA", { timeZone: TZ });
   const tomorrow = new Date(Date.now() + 86400000).toLocaleDateString("en-CA", { timeZone: TZ });
@@ -141,34 +139,40 @@ async function load() {
     for (let i = 0; i < t.length - WINDOW; i++) {
       if (!t[i].startsWith(dateStr)) continue;
 
-      // NOTE: device is in Brisbane, so this is fine. If not, we'd parse using TZ explicitly.
       const hour = new Date(t[i]).getHours();
       if (hour < 6 || hour > (18 - WINDOW)) continue;
 
       let maxWind = 0, sumWind = 0;
+      let maxGust = 0, sumGust = 0;
       let maxProb = 0, sumProb = 0;
       let totalMm = 0;
       let dir = wd[i] ?? 0;
 
       for (let k = 0; k < WINDOW; k++) {
-        const wind = w[i + k] ?? 0;
-        const prob = p[i + k] ?? 0;
-        const mm = rmm[i + k] ?? 0;
+        const w = wind[i + k] ?? 0;
+        const g = gust?.[i + k] ?? w; // if gust missing, fall back to wind
+        const p = prob[i + k] ?? 0;
+        const r = mm[i + k] ?? 0;
 
-        maxWind = Math.max(maxWind, wind);
-        sumWind += wind;
+        maxWind = Math.max(maxWind, w);
+        sumWind += w;
 
-        maxProb = Math.max(maxProb, prob);
-        sumProb += prob;
+        maxGust = Math.max(maxGust, g);
+        sumGust += g;
 
-        totalMm += mm;
+        maxProb = Math.max(maxProb, p);
+        sumProb += p;
+
+        totalMm += r;
       }
 
       const avgWind = sumWind / WINDOW;
+      const avgGust = sumGust / WINDOW;
       const avgProb = sumProb / WINDOW;
-      const sc = score(avgWind, maxProb, totalMm);
 
-      const e = { i, sc, maxWind, avgWind, maxProb, avgProb, totalMm, dir };
+      const sc = score(avgWind, avgGust, maxProb, totalMm);
+
+      const e = { i, sc, maxWind, avgWind, maxGust, avgGust, maxProb, avgProb, totalMm, dir };
 
       if (!best || sc < best.sc) best = e;
       if (!worst || sc > worst.sc) worst = e;
@@ -177,24 +181,26 @@ async function load() {
     return { best, worst };
   }
 
-  function fill(tId, dId, e) {
+  function fill(timeId, detailId, e) {
     if (!e) {
-      document.getElementById(tId).textContent = "–";
-      document.getElementById(dId).textContent = "";
+      document.getElementById(timeId).textContent = "–";
+      document.getElementById(detailId).textContent = "";
       return;
     }
 
     const startDate = new Date(t[e.i]);
     const endDate = new Date(startDate.getTime() + WINDOW * 60 * 60 * 1000);
 
-    document.getElementById(tId).textContent =
+    document.getElementById(timeId).textContent =
       `${fmtTime(startDate)} – ${fmtTime(endDate)}`;
 
-    document.getElementById(dId).textContent =
+    const effective = Math.max(e.maxWind, e.maxGust);
+
+    document.getElementById(detailId).textContent =
       `Wind: avg ${e.avgWind.toFixed(0)} / max ${e.maxWind.toFixed(0)} km/h (${windDir(e.dir)}) · ` +
-      `Wave height: ~${waveProxy(e.maxWind)} cm · ` +
-      `Rain: ≤ ${e.maxProb.toFixed(0)}% (avg ${e.avgProb.toFixed(0)}%) · ` +
-      `${e.totalMm.toFixed(1)} mm`;
+      `Gusts: avg ${e.avgGust.toFixed(0)} / max ${e.maxGust.toFixed(0)} km/h · ` +
+      `Wave proxy: ~${waveProxy(effective)} cm · ` +
+      `Rain: ≤ ${e.maxProb.toFixed(0)}% · ${e.totalMm.toFixed(1)} mm`;
   }
 
   const tBW = bestWorst(today);
@@ -204,16 +210,17 @@ async function load() {
   fill("worstToday", "worstTodayDetail", tBW.worst);
   fill("bestTomorrow", "bestTomorrowDetail", tmBW.best);
 
-  // If best and worst look basically the same, tell the user.
+  // If best and worst are basically identical, show a note
   if (tBW.best && tBW.worst) {
     const same =
       Math.abs(tBW.best.avgWind - tBW.worst.avgWind) < 0.5 &&
+      Math.abs(tBW.best.avgGust - tBW.worst.avgGust) < 0.5 &&
       Math.abs(tBW.best.maxProb - tBW.worst.maxProb) < 1 &&
       Math.abs(tBW.best.totalMm - tBW.worst.totalMm) < 0.1;
 
     if (same) {
       document.getElementById("tieNote").textContent =
-        "Note: Today’s forecast is very uniform — windows have similar wind/rain, so best & worst may look alike.";
+        "Note: Today’s forecast is very uniform — windows have similar wind/gust/rain, so best & worst may look alike.";
     }
   }
 }
