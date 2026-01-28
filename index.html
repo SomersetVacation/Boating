@@ -6,59 +6,79 @@
 <title>Boating Conditions</title>
 
 <style>
-  body { margin:0; background:black; color:white; font-family:Arial, Helvetica, sans-serif; }
+  body {
+    margin:0;
+    background:black;
+    color:white;
+    font-family:Arial, Helvetica, sans-serif;
+  }
 
-  /* LESS WIDE + tighter padding */
+  /* MUCH NARROWER */
   .card{
-    border:1px solid #333; border-radius:16px;
-    padding:12px 12px;
+    border:1px solid #333;
+    border-radius:14px;
+    padding:14px;
     background:rgba(255,255,255,0.06);
-    max-width:520px;   /* narrower */
+    max-width:420px;   /* << narrower */
     margin:0 auto;
   }
 
-  h2 { margin:0 0 6px; font-size:20px; text-align:center; }
-
-  .subhead{
-    display:flex; justify-content:space-between; align-items:center;
-    gap:8px; margin: 0 0 8px;
-    opacity:.85; font-size:11px;
+  h2 {
+    margin:0 0 8px;
+    font-size:22px;   /* +2 */
+    text-align:center;
   }
 
-  /* ONE COLUMN (stacked) */
-  .stack{ display:flex; flex-direction:column; gap:8px; }
+  .subhead{
+    display:flex;
+    justify-content:space-between;
+    margin-bottom:10px;
+    font-size:13px;   /* +2 */
+    opacity:.85;
+  }
+
+  .stack{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
 
   .slot{
     border:1px solid #2a2a2a;
     border-radius:12px;
-    padding:8px 10px;
-    background:rgba(0,0,0,0.15);
+    padding:10px;
+    background:rgba(0,0,0,0.18);
   }
 
   .slotTop{
-    display:flex; justify-content:space-between; align-items:center;
-    margin-bottom:4px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:6px;
   }
 
-  .slotTime{ font-size:13px; font-weight:800; }
+  .slotTime{
+    font-size:15px;   /* +2 */
+    font-weight:800;
+  }
 
   .badge{
-    font-size:10px; font-weight:900;
-    padding:2px 7px; border-radius:999px;
+    font-size:11px;   /* +1 */
+    font-weight:900;
+    padding:3px 8px;
+    border-radius:999px;
     border:1px solid currentColor;
-    opacity:.95;
   }
 
-  /* tighter details */
   .kv{
     display:grid;
-    grid-template-columns: 92px 1fr;
-    gap:4px 8px;
-    font-size:11px;
-    line-height:1.22;
-    opacity:.92;
+    grid-template-columns: 100px 1fr;
+    gap:6px 8px;
+    font-size:13px;   /* +2 */
+    line-height:1.3;
   }
-  .k{ opacity:.70; }
+
+  .k{ opacity:.7; }
   .v{ font-weight:600; }
 
   .good { color:#8fff9a; }
@@ -66,33 +86,40 @@
   .bad  { color:#ff9a9a; }
 
   .legend{
-    margin-top:8px;
-    padding:8px 10px;
+    margin-top:10px;
+    padding:10px;
     border:1px solid #2a2a2a;
     border-radius:12px;
-    background:rgba(0,0,0,0.15);
-    font-size:11px;
-    line-height:1.3;
+    background:rgba(0,0,0,0.18);
+    font-size:12px;   /* +2 */
+    line-height:1.35;
   }
-  .legend .row{ margin-top:5px; }
+
+  .legend .row{ margin-top:6px; }
+
   .legend .tag{
     display:inline-block;
-    padding:2px 6px;
+    padding:2px 7px;
     border-radius:999px;
     border:1px solid currentColor;
     font-weight:900;
-    font-size:10px;
+    font-size:11px;
     margin-right:6px;
   }
-  .legend small{ opacity:.8; }
 
   .meta{
-    margin-top:8px; padding-top:8px; border-top:1px solid #222;
-    font-size:10.5px; opacity:.75; line-height:1.25;
+    margin-top:10px;
+    padding-top:8px;
+    border-top:1px solid #222;
+    font-size:12px;   /* +2 */
+    opacity:.75;
     text-align:center;
   }
-  .meta a{ color:#9fd4ff; text-decoration:none; }
-  .meta a:hover{ text-decoration:underline; }
+
+  .meta a{
+    color:#9fd4ff;
+    text-decoration:none;
+  }
 </style>
 </head>
 
@@ -108,18 +135,17 @@
   <div id="slots" class="stack"></div>
 
   <div class="legend">
-    <div><strong>Rating guide</strong> <small>(wind/gust + rain)</small></div>
-    <div class="row good"><span class="tag">GOOD</span>Effective wind ≤ <strong>18 km/h</strong> and rain ≤ <strong>35%</strong></div>
-    <div class="row ok"><span class="tag">OK</span>Effective wind ≤ <strong>26 km/h</strong> and rain ≤ <strong>60%</strong></div>
-    <div class="row bad"><span class="tag">BAD</span>Above those thresholds</div>
-    <div class="row"><small>Effective wind = max(wind max, gust max). Wave proxy is an estimate.</small></div>
+    <div><strong>Rating guide</strong></div>
+    <div class="row good"><span class="tag">GOOD</span>Wind/gust ≤ <strong>18 km/h</strong>, rain ≤ <strong>35%</strong></div>
+    <div class="row ok"><span class="tag">OK</span>Wind/gust ≤ <strong>26 km/h</strong>, rain ≤ <strong>60%</strong></div>
+    <div class="row bad"><span class="tag">BAD</span>Stronger wind/gust or high rain risk</div>
   </div>
 
   <div class="meta">
     <div id="metaUpdated">Last updated: –</div>
     <div id="metaNext">Next update: –</div>
     <div>
-      Source: <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a>
+      Source: <a href="https://open-meteo.com/" target="_blank">Open-Meteo</a>
     </div>
   </div>
 </div>
@@ -139,139 +165,106 @@ const DAY_SLOTS = [
 
 const REFRESH_MS = 30 * 60 * 1000;
 
-function waveProxy(effectiveKmh) {
-  if (effectiveKmh < 5) return 0;
-  if (effectiveKmh < 10) return 10;
-  if (effectiveKmh < 15) return 20;
-  if (effectiveKmh < 20) return 35;
-  if (effectiveKmh < 25) return 50;
+function waveProxy(kmh){
+  if (kmh < 5) return 0;
+  if (kmh < 10) return 10;
+  if (kmh < 15) return 20;
+  if (kmh < 20) return 35;
+  if (kmh < 25) return 50;
   return 70;
 }
 
-function windDir(deg) {
-  const dirs = ["N","NE","E","SE","S","SW","W","NW"];
-  return dirs[Math.round((deg ?? 0) / 45) % 8];
+function windDir(deg){
+  const d=["N","NE","E","SE","S","SW","W","NW"];
+  return d[Math.round((deg||0)/45)%8];
 }
 
-function fmtClock(d) {
-  return d.toLocaleString("en-AU", { timeZone: TZ, weekday: "short", hour: "2-digit", minute: "2-digit" });
-}
-function fmtHm(d) {
-  return d.toLocaleTimeString("en-AU", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
-}
-function dateStrToday() {
-  return new Date().toLocaleDateString("en-CA", { timeZone: TZ });
+function fmtTime(d){
+  return d.toLocaleTimeString("en-AU",{timeZone:TZ,hour:"2-digit",minute:"2-digit"});
 }
 
-function setMetaTimes() {
-  const now = new Date();
-  const next = new Date(now.getTime() + REFRESH_MS);
-  document.getElementById("metaUpdated").textContent = `Last updated: ${fmtClock(now)}`;
-  document.getElementById("metaNext").textContent = `Next update: ${fmtClock(next)}`;
-  document.getElementById("nowLine").textContent = `Now: ${fmtHm(now)}`;
+function todayStr(){
+  return new Date().toLocaleDateString("en-CA",{timeZone:TZ});
 }
 
-// forgiving classification
-function classify(slot) {
-  const effective = Math.max(slot.maxWind, slot.maxGust);
-  const rainRisk = slot.maxProb;
-
-  if (effective <= 18 && rainRisk <= 35) return { label:"GOOD", cls:"good" };
-  if (effective <= 26 && rainRisk <= 60) return { label:"OK", cls:"ok" };
-  return { label:"BAD", cls:"bad" };
+function classify(e){
+  const eff=Math.max(e.maxWind,e.maxGust);
+  if(eff<=18 && e.maxProb<=35) return{label:"GOOD",cls:"good"};
+  if(eff<=26 && e.maxProb<=60) return{label:"OK",cls:"ok"};
+  return{label:"BAD",cls:"bad"};
 }
 
-function buildSlot(j, dateStr, startHour, endHour) {
-  const t = j.hourly.time;
-  const wind = j.hourly.wind_speed_10m;
-  const gust = j.hourly.wind_gusts_10m;
-  const wd = j.hourly.wind_direction_10m;
-  const prob = j.hourly.precipitation_probability;
-  const mm = j.hourly.precipitation;
+async function load(){
+  const now=new Date();
+  document.getElementById("nowLine").textContent=`Now: ${fmtTime(now)}`;
 
-  const startIsoPrefix = `${dateStr}T${String(startHour).padStart(2,'0')}:00`;
-  const i = t.findIndex(x => x.startsWith(startIsoPrefix));
-  if (i < 0) return null;
+  const r=await fetch(
+    `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}`+
+    `&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation_probability,precipitation`+
+    `&timezone=${encodeURIComponent(TZ)}`,
+    {cache:"no-store"}
+  );
+  const j=await r.json();
 
-  let maxWind = 0, sumWind = 0;
-  let maxGust = 0, sumGust = 0;
-  let maxProb = 0;
-  let totalMm = 0;
-  const dir = wd[i] ?? 0;
+  const t=j.hourly.time;
+  const wind=j.hourly.wind_speed_10m;
+  const gust=j.hourly.wind_gusts_10m;
+  const wd=j.hourly.wind_direction_10m;
+  const prob=j.hourly.precipitation_probability;
+  const mm=j.hourly.precipitation;
 
-  for (let k = 0; k < WINDOW_HOURS; k++) {
-    const w = wind[i + k] ?? 0;
-    const g = gust?.[i + k] ?? w;
-    const p = prob?.[i + k] ?? 0;
-    const r = mm?.[i + k] ?? 0;
+  const wrap=document.getElementById("slots");
+  wrap.innerHTML="";
 
-    maxWind = Math.max(maxWind, w); sumWind += w;
-    maxGust = Math.max(maxGust, g); sumGust += g;
-    maxProb = Math.max(maxProb, p);
-    totalMm += r;
-  }
+  const ds=todayStr();
 
-  const avgWind = sumWind / WINDOW_HOURS;
-  const avgGust = sumGust / WINDOW_HOURS;
-  const effective = Math.max(maxWind, maxGust);
+  for(const s of DAY_SLOTS){
+    const idx=t.findIndex(x=>x.startsWith(`${ds}T${String(s.start).padStart(2,"0")}:00`));
+    if(idx<0) continue;
 
-  return {
-    startHour, endHour,
-    avgWind, maxWind,
-    avgGust, maxGust,
-    maxProb,
-    totalMm,
-    dir,
-    wave: waveProxy(effective)
-  };
-}
+    let maxWind=0,sumWind=0,maxGust=0,sumGust=0,maxProb=0,totalMm=0;
+    for(let k=0;k<WINDOW_HOURS;k++){
+      const w=wind[idx+k]||0;
+      const g=gust[idx+k]||w;
+      maxWind=Math.max(maxWind,w); sumWind+=w;
+      maxGust=Math.max(maxGust,g); sumGust+=g;
+      maxProb=Math.max(maxProb,prob[idx+k]||0);
+      totalMm+=mm[idx+k]||0;
+    }
 
-function renderSlots(slots) {
-  const wrap = document.getElementById("slots");
-  wrap.innerHTML = "";
+    const e={
+      avgWind:sumWind/WINDOW_HOURS,
+      maxWind,
+      avgGust:sumGust/WINDOW_HOURS,
+      maxGust,
+      maxProb,
+      totalMm,
+      dir:wd[idx]
+    };
 
-  for (const s of slots) {
-    if (!s) continue;
-    const { label, cls } = classify(s);
-
-    const el = document.createElement("div");
-    el.className = `slot ${cls}`;
-    el.innerHTML = `
+    const c=classify(e);
+    const el=document.createElement("div");
+    el.className=`slot ${c.cls}`;
+    el.innerHTML=`
       <div class="slotTop">
-        <div class="slotTime">${String(s.startHour).padStart(2,"0")}:00 – ${String(s.endHour).padStart(2,"0")}:00</div>
-        <div class="badge">${label}</div>
+        <div class="slotTime">${String(s.start).padStart(2,"0")}:00 – ${String(s.end).padStart(2,"0")}:00</div>
+        <div class="badge">${c.label}</div>
       </div>
-
       <div class="kv">
-        <div class="k">Wind</div><div class="v">${s.avgWind.toFixed(0)} / ${s.maxWind.toFixed(0)} km/h (${windDir(s.dir)})</div>
-        <div class="k">Gust</div><div class="v">${s.avgGust.toFixed(0)} / ${s.maxGust.toFixed(0)} km/h</div>
-        <div class="k">Wave</div><div class="v">~${s.wave} cm</div>
-        <div class="k">Rain</div><div class="v">max ${s.maxProb.toFixed(0)}% · ${s.totalMm.toFixed(1)} mm</div>
-      </div>
-    `;
+        <div class="k">Wind</div><div class="v">${e.avgWind.toFixed(0)} / ${e.maxWind.toFixed(0)} km/h (${windDir(e.dir)})</div>
+        <div class="k">Gust</div><div class="v">${e.avgGust.toFixed(0)} / ${e.maxGust.toFixed(0)} km/h</div>
+        <div class="k">Wave</div><div class="v">~${waveProxy(Math.max(e.maxWind,e.maxGust))} cm</div>
+        <div class="k">Rain</div><div class="v">≤ ${e.maxProb}% · ${totalMm.toFixed(1)} mm</div>
+      </div>`;
     wrap.appendChild(el);
   }
-}
 
-async function load() {
-  setMetaTimes();
-
-  const r = await fetch(
-    `https://api.open-meteo.com/v1/forecast` +
-    `?latitude=${LAT}&longitude=${LON}` +
-    `&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m,precipitation_probability,precipitation` +
-    `&timezone=${encodeURIComponent(TZ)}`,
-    { cache: "no-store" }
-  );
-
-  const j = await r.json();
-  const ds = dateStrToday();
-  const slots = DAY_SLOTS.map(s => buildSlot(j, ds, s.start, s.end));
-  renderSlots(slots);
+  document.getElementById("metaUpdated").textContent=`Last updated: ${now.toLocaleString("en-AU",{timeZone:TZ})}`;
+  document.getElementById("metaNext").textContent=`Next update: ${new Date(now.getTime()+REFRESH_MS).toLocaleTimeString("en-AU",{timeZone:TZ})}`;
 }
 
 load();
-setInterval(load, REFRESH_MS);
+setInterval(load,REFRESH_MS);
 </script>
 </body>
 </html>
